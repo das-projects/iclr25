@@ -7,9 +7,15 @@
 
 \usepackage{hyperref}
 \usepackage{url}
+\usepackage{forest}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows}
 
+\tikzstyle{startstop} = [rectangle, rounded corners, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=red!30]
+\tikzstyle{process} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=orange!30]
+\tikzstyle{arrow} = [thick,->,>=stealth]
 
-\title{Rhine: Multimodal Foundational Model for Document Question Answering}
+\title{Multimodal Foundational Model for Document Question Answering}
 
 % Authors must not appear in the submitted version. They should be hidden
 % as long as the \iclrfinalcopy macro remains commented out below.
@@ -45,7 +51,32 @@ Multimodal promptable foundational model for document question answering. Introd
 
 \section{Introduction}
 
-Rhine is a promptable document question answering model, inspired by the Segment Anything Model. We focus on Promptable Visual Segmentation task, where the model is given a document and a question, and the model is expected to segment the document based on that question. The model is multimodal as it expects both the document as an image, along with its OCR. 
+We introduce a promptable document question answering model where the focus is on the visual segmentation task, where the model is given a document and a question, and the model is expected to segment the document based on that question. The model is pre-trained on a large corpus of documents and OCRs with the Document Joint Embedding Predictive Architecture (D-JEPA) objective. The D-JEPA objective here masks part of the document, and is predicted based on the joint image and text embedding, while a masked text is predicted based on the image embedding.
+
+\begin{tikzpicture}[node distance=2cm and 3cm]
+
+   % Nodes
+   \node (start) [startstop] {Document Image};
+   \node (heira) [process, below of=start] {Heira Embedding};
+   \node (imgdecode) [process, below of=heira] {Image Decoder};
+   \node (llm) [process, below of=imgdecode ] {LLM};
+   \node (promptimg) [process, left of=llm] {Prompt};
+   \node (ocr) [process, below of=llm, xshift=-2cm, yshift=-1cm] {OCR};
+   \node (qa) [process, below of=llm, xshift=2cm, yshift=-1cm] {Question and Answer};
+   \node (layout) [process, below of=llm, xshift=6cm, yshift=-1cm] {Layout Detection};
+   \node (ner) [process, below of=llm, xshift=10cm, yshift=-1cm] {Named Entity Recognition};
+
+   % Arrows
+   \draw [arrow] (start) -- (heira);
+   \draw [arrow] (heira) -- (imgdecode);
+   \draw [arrow] (imgdecode) -- (llm);
+   \draw [arrow] (promptimg) -- (llm);
+   \draw [arrow] (llm) -- (ocr);
+   \draw [arrow] (llm) -- (qa);
+   \draw [arrow] (llm) -- (layout);
+   \draw [arrow] (llm) -- (ner);
+
+   \end{tikzpicture}
 
 \subsection{Image Encoder}
 The Hiera model is a novel hierarchical vision transformer designed with a focus on simplicity and efficiency for computer vision tasks. It emerges as a response to the increasing complexity of existing hierarchical vision transformers, such as MViTv2. The Hiera architecture retains the essential components of the ViT framework while eliminating non-essential features that do not contribute to its overall performance, thereby achieving faster operation and competitive accuracy.
@@ -82,7 +113,7 @@ To adapt the Hiera model for 1024x1024 images, several adjustments would be nece
 
 By implementing these adjustments, the Hiera model can be effectively utilized for processing 1024x1024 images while aiming to maintain or improve performance.
 
-Reference: https://arxiv.org/pdf/2306.00989
+Reference: \cite[Hiera Model]{ryali2023hiera}
 
 In this work, we use a different training strategy, known as the I-JEPA.
 
