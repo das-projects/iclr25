@@ -1,0 +1,554 @@
+
+\documentclass{article} % For LaTeX2e
+\usepackage{iclr2024_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{forest}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows}
+
+\tikzstyle{startstop} = [rectangle, rounded corners, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=red!30]
+\tikzstyle{process} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=orange!30]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+
+\title{Multimodal Foundational Model for Document Question Answering}
+
+% Authors must not appear in the submitted version. They should be hidden
+% as long as the \iclrfinalcopy macro remains commented out below.
+% Non-anonymous submissions will be rejected without review.
+
+\author{Arijit Das \thanks{ Use footnote for providing further information
+about author (webpage, alternative address)---\emph{not} for acknowledging
+funding agencies.  Funding acknowledgements go at the end of the paper.} \\
+Sustella AI\\
+\texttt{arijit.das@selfsupervised.de}
+}
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to \LaTeX{} to determine where to break
+% the lines. Using \AND forces a linebreak at that point. So, if \LaTeX{}
+% puts 3 of 4 authors names on the first line, and the last on the second
+% line, try using \AND instead of \And before the third author name.
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+% \iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+\begin{document}
+
+
+\maketitle
+
+\begin{abstract}
+Multimodal promptable foundational model for document question answering. Introduce Document-JEPA objective. 
+\end{abstract}
+
+\section{Introduction}
+
+We introduce a document langauge model where the focus is on natural language processing tasks based purely on the image of a document. The model is pre-trained on a large corpus of documents and OCRs with the Document Joint Embedding Predictive Architecture (D-JEPA) objective. The OCR Json file is embedding using LL2BERT and objective is to learn to generate these embeddings purely from the image of the document. The document encoder is based on the Heira model and a Token Turing Machine architecture is used process the embeddings and generate a sequence of image token embeddings to match those generated from the OCR. We use the SigLIP cost function to ensure the embeddings are similar. The model is then fine-tuned on the promptable document question answering task.
+
+\begin{tikzpicture}[node distance=2cm and 3cm]
+
+   % Nodes
+   \node (start) [startstop] {Document Image};
+   \node (heira) [process, below of=start] {Heira Embedding};
+   \node (imgdecode) [process, below of=heira] {Aggregator: Token Turing Machine};
+   \node (llm) [process, below of=imgdecode ] {LLM};
+   \node (prompting) [process, left of=llm] {Prompt};
+   \node (ocr) [process, below of=llm, xshift=-2cm, yshift=-1cm] {OCR};
+   \node (qa) [process, below of=llm, xshift=2cm, yshift=-1cm] {Q\&A};
+   \node (layout) [process, below of=llm, xshift=6cm, yshift=-1cm] {Layout Detection};
+   \node (ner) [process, below of=llm, xshift=10cm, yshift=-1cm] {NER};
+
+   % Arrows
+   \draw [arrow] (start) -- (heira);
+   \draw [arrow] (heira) -- (imgdecode);
+   \draw [arrow] (imgdecode) -- (llm);
+   \draw [arrow] (prompting) -- (llm);
+   \draw [arrow] (llm) -- (ocr);
+   \draw [arrow] (llm) -- (qa);
+   \draw [arrow] (llm) -- (layout);
+   \draw [arrow] (llm) -- (ner);
+
+   \end{tikzpicture}
+
+\subsection{Image Encoder}
+The Hiera model is a novel hierarchical vision transformer designed with a focus on simplicity and efficiency for computer vision tasks. It emerges as a response to the increasing complexity of existing hierarchical vision transformers, such as MViTv2. The Hiera architecture retains the essential components of the ViT framework while eliminating non-essential features that do not contribute to its overall performance, thereby achieving faster operation and competitive accuracy.
+
+{\bf Hiera Architecture:}
+Hiera is built upon the foundation of MViTv2, from which the authors carefully removed various specialized components often added in an attempt to enhance performance. Specifically, Hiera eliminates:
+\begin{enumerate}
+   \item Convolutions: These have traditionally been used in hierarchical models to impart spatial biases.
+   \item Shifted or Cross-shaped Windows: These complex mechanisms are designed to improve locality and capture spatial relationships within the data.
+   \item Decomposed Relative Position Embeddings: These embeddings are typically utilized to encode positional information in a more sophisticated manner.
+\end{enumerate}
+
+Instead of these modules, Hiera leverages the Masked Autoencoder (MAE) for strong pretraining, which allows for effective learning of spatial biases. As a result, Hiera comprises of entirely standard ViT blocks, significantly reducing the model's complexity while retaining or even increasing accuracy compared to its predecessor.
+
+{\bf Hiera Training Strategy:}
+The training strategy for Hiera centers around the use of the MAE method, which facilitates efficient sparse pretraining. This approach allows Hiera to learn effective spatial representations without relying on complex architecture components. In comparative trials, it was found that when training Hiera with MAE pretraining, the model not only simplifies the architecture but also enhances performance.
+
+Hiera achieves remarkable efficiency:
+\begin{enumerate}
+   \item It is up to {\bf 2.4×} faster on images than MViTv2.
+   \item For image classification, Hiera-L is reported to be {\bf 3×} faster to train than a supervised MViTv2-L model while achieving superior accuracy.
+   \item Remarkably, it performs effectively even in smaller configurations, demonstrating strong capabilities where convolutions typically dominated earlier designs.
+\end{enumerate}
+
+To adapt the Hiera model for 1024x1024 images, several adjustments would be necessary:
+\begin{enumerate}
+   \item Input Rescaling: Ensure that the input layers of the model can handle the larger 1024x1024 images. This might require modification of any layers or preprocessing steps that specifically target a 224x224 resolution.
+   \item Adjusting Patch Size: The model's patch size may need to be recalibrated to appropriately process the larger images effectively. A larger patch size can enhance efficiency given the increased input size.
+   \item FLOPs and Memory Considerations: Analyze and possibly upgrade the computational resources (e.g., GPU memory) since higher resolutions will significantly increase the number of computations (FLOPs) and memory usage. Adjusting the batch size may also be necessary.
+   \item Network Architecture: Depending on the model's performance with the larger size, modifications to the number of blocks, channels, or heads in the Hiera architecture may be necessary. For instance, it could involve scaling up certain configurations (similar to Hiera-B+ or Hiera-L) to maintain performance.
+   \item Fine-tuning Pretraining: If the model was pretrained on smaller images, it may need to undergo a new pretraining phase on the 1024x1024 images or include an additional fine-tuning step specifically for this resolution to optimize its performance at the new scale.
+   \item Evaluation Metrics: Adjust evaluation protocols and metrics to appropriately assess model performance at the 1024x1024 resolution, ensuring that you are capturing the accuracy, speed, and efficiency of the model in this new context.
+\end{enumerate}
+
+By implementing these adjustments, the Hiera model can be effectively utilized for processing 1024x1024 images while aiming to maintain or improve performance.
+
+Reference: \cite[Hiera Model]{ryali2023hiera}
+
+In this work, we use a different training strategy, known as the I-JEPA.
+
+{\bf I-JEPA Training Strategy:}
+The training strategy for the Image-based Joint-Embedding Predictive Architecture (I-JEPA) is distinct from traditional methods like Masked Autoencoders (MAE) due to its focus on abstract representation learning without reliance on hand-crafted data augmentations.
+
+\begin{enumerate}
+   \item {\bf Architecture Overview:} I-JEPA uses a Vision Transformer (ViT) for encoding and predicting representations. The architecture includes a context encoder and a target encoder, with the purpose of predicting representations of various target blocks from a single context block within the same image.
+   \item {\bf Predictive Learning:} In I-JEPA, the training objective revolves around predicting the representations of target blocks based on the context block. Unlike generative methods that reconstruct inputs at the pixel level, I-JEPA makes predictions in abstract representation space, focusing on high-level semantic features.
+   \item {\bf Multi-block Masking Strategy:} The model employs a multi-block masking strategy that enables learning from larger, informative context blocks, which helps in capturing more spatial context and reducing the focus on pixel-level details.
+   \item {\bf Training Efficiency:} One of the key advantages of I-JEPA is its efficiency; it converges in approximately five times fewer iterations compared to traditional pixel reconstruction methods. This allows I-JEPA to achieve strong performance with significantly less computational effort and training duration.
+   \item {\bf Adaptability:} I-JEPA scales effectively when trained on larger datasets and benefits from larger model sizes, improving downstream performance even when fine-tuning or adapting the model for specific tasks.
+\end{enumerate}
+
+{\bf Comparison with MAE:}
+\begin{enumerate}
+   \item {\bf Data Augmentation Reliance:} MAE relies heavily on hand-crafted data augmentations, processing multiple views of each image during pretraining, while I-JEPA requires only a single view. This gives I-JEPA a scalability advantage and simplifies the training process.
+   \item {\bf Learning Paradigm:} MAE's approach is generative and focuses on reconstructing masked portions of images at the pixel level, while I-JEPA's focus is on predicting high-level semantic representations in a more abstract sense, which improves the quality of learned features.
+   \item {\bf Performance:} Empirical evidence indicates that I-JEPA outperforms MAE in several benchmarks, including linear probing on ImageNet-1K and semi-supervised tasks, while also requiring fewer training epochs and less computational power.
+   \item {\bf Training Dynamics:} Although I-JEPA might introduce some overhead from computing targets in representation space (approximately {7\%} slower per iteration), its reduced overall training time results in significant computational savings in practice compared to MAE.
+   \item {\bf Conclusion:} In summary, I-JEPA represents a novel approach to self-supervised learning focused on semantic representation while improving efficiency and performance over traditional methods like MAE by leveraging a predictive approach to learning without extensive reliance on data augmentations.
+   \item {\bf ImageNet-1K Linear Evaluation:} I-JEPA significantly improves linear probing performance on the ImageNet-1K benchmark compared to MAE. I-JEPA achieves 77.3\% Top-1 accuracy with a ViT-H/14 model over 300 epochs, while MAE achieves 71.5\% Top-1 accuracy with a ViT-H/14 model over 1600 epochs. This indicates that I-JEPA can achieve superior performance with considerably less training time.
+   \item {\bf Low-Shot ImageNet-1K (1\% Labels):} I-JEPA also outperforms MAE in this scenario, demonstrating better adaptation for image classification using only 1\% of the available labels. I-JEPA requires fewer pretraining epochs compared to MAE while still achieving competitive results.
+   \item {\bf Model Efficiency:} Although I-JEPA is about 7\% slower per iteration due to additional overhead from computing targets in representation space, it converges in roughly 5 times fewer iterations than MAE. This leads to significant computational savings in practice.
+   \item {\bf Fine-Tuning on Full ImageNet:} During fine-tuning, I-JEPA achieves a Top-1 accuracy of 87.1\%, which is just 0.7\% lower than MAE's 87.8\% accuracy. However, I-JEPA is trained for 5.3 times fewer epochs, indicating better efficiency in utilizing training resources.
+\end{enumerate}
+
+Overall, I-JEPA consistently shows enhanced performance across various benchmarks while minimizing reliance on extensive epochs of training, making it a more efficient alternative to MAE in self-supervised learning for image representations.
+
+Reference: https://arxiv.org/pdf/2301.08243
+
+\subsection{Text Encoder}
+Large decoder-only language models (LLMs) are the state-of-the-art models on most of today’s NLP tasks and benchmarks. Yet, the community is only slowly adopting these models for text embedding tasks, which require rich contextualized representations. In this work, we introduce LLM2Vec, a simple unsupervised approach that can transform any decoder-only LLM into a strong text encoder. LLM2Vec consists of three simple steps: 1) enabling bidirectional attention, 2) masked next token prediction, and 3) unsupervised contrastive learning. We demonstrate the effectiveness of LLM2Vec by applying it to 3 popular LLMs ranging from 1.3B to 7B parameters and evaluate the transformed models on English word- and sequence-level tasks. We outperform encoder-only models by a large margin on word-level tasks and reach a new unsupervised state-of-the-art performance on the Massive Text Embeddings Benchmark (MTEB). Moreover, when combining LLM2Vec with supervised contrastive learning, we achieve state-of-the-art performance on MTEB among models that train only on publicly available data. Our strong empirical results and extensive analysis demonstrate that LLMs can be effectively transformed into universal text encoders in a parameter-efficient manner without the need for expensive adaptation or synthetic GPT-4 generated data.
+
+LLM2Vec is a novel unsupervised approach designed to transform any pre-trained decoder-only large language model (LLM) into a robust text encoder capable of generating rich contextualized representations suitable for text embedding tasks. The transformation process comprises three key steps:
+
+\begin{enumerate}
+   \item {\bf Enabling Bidirectional Attention:} This initial step replaces the standard causal attention mechanism of decoder-only LLMs with a bidirectional attention matrix, allowing each token in the input sequence to access information from all other tokens, including those that come after it. This adjustment aims to enhance the model's ability to incorporate contextual information across the entire sequence.
+   \item {\bf Masked Next Token Prediction (MNTP):} Following the activation of bidirectional attention, the model undergoes training with a task focused on predicting masked tokens within input sequences. This training helps the model adapt to utilizing the newly available bidirectional context effectively.
+   \item {\bf Unsupervised Contrastive Learning:} The final step employs an unsupervised contrastive learning approach, which helps the model learn more effective representations of sequences. This is achieved by creating two different representations of the same input sentence and performing a contrastive learning task to optimize the similarity of these representations.
+\end{enumerate}
+
+Through these steps, LLM2Vec effectively enhances the capabilities of decoder-only LLMs, enabling them to produce high-quality, universal text embeddings without the need for labeled data or extensive adaptation. The methodology has been demonstrated to outperform traditional encoder-only models on various NLP tasks, particularly on benchmarks like the Massive Text Embeddings Benchmark (MTEB).
+
+\subsection{How MLM Works}
+\subsubsection{Input Preparation}
+\begin{itemize}
+    \item Given a sentence or a sequence of tokens, a certain percentage of tokens (typically 15\%) are randomly selected to be masked.
+    \item For each selected token:
+    \begin{itemize}
+        \item 80\% of the time, it is replaced with the special token \texttt{[MASK]}.
+        \item 10\% of the time, it is replaced with a random word from the vocabulary.
+        \item 10\% of the time, it remains unchanged.
+    \end{itemize}
+    \item This mixture of masking, random replacement, and unchanged tokens helps the model to not only predict masked words but also to understand the context when the original word is present or when an incorrect word is given.
+\end{itemize}
+
+\subsubsection{Model Training}
+\begin{itemize}
+    \item The sequence with masked tokens is fed into the model, which is trained to predict the original tokens that were masked out.
+    \item The model learns to leverage the context provided by the surrounding tokens to make these predictions.
+\end{itemize}
+
+\subsubsection{Loss Calculation}
+\begin{itemize}
+    \item The model calculates the loss only on the positions where the tokens were masked, comparing its predicted tokens against the actual tokens.
+    \item This loss is then used to update the model's weights during training.
+\end{itemize}
+
+\subsubsection{Why MLM is Important}
+\begin{itemize}
+    \item \textbf{Contextual Understanding}: By predicting missing words in a sentence, the model learns to understand the context of words and their relationships within a sentence. This helps the model to generate rich, contextualized embeddings.
+    \item \textbf{Bidirectional Training}: Unlike traditional language models that predict the next word in a sequence (and thus are unidirectional), MLM allows the model to consider context from both directions (left and right of the masked token). This bidirectional training is key to BERT's success in various NLP tasks.
+    \item \textbf{Generalization}: The random masking process helps the model generalize better by preventing it from relying too heavily on any specific tokens during training.
+\end{itemize}
+
+\subsubsection{Variations and Applications}
+\begin{itemize}
+    \item \textbf{Dynamic Masking}: In models like RoBERTa, dynamic masking is used, where the masking pattern changes in each training iteration rather than being fixed. This ensures that the model sees a variety of masked tokens during training, which can improve generalization.
+    \item \textbf{Fine-Tuning}: After pre-training with MLM, the model can be fine-tuned on specific downstream tasks (like classification, question answering, etc.) where it applies its learned contextual knowledge to perform these tasks effectively.
+    \item \textbf{Extensions}: MLM has been extended or modified in various ways for different models or tasks, but the core idea remains to help the model understand and predict words based on their context within a sequence.
+\end{itemize}
+
+\subsubsection{Summary}
+Masked Language Modeling is a pre-training task where certain tokens in a sentence are masked, and the model learns to predict these tokens using the surrounding context. This task helps the model to develop a deep understanding of the language, enabling it to perform well on a wide range of NLP tasks after fine-tuning.
+
+
+The text encoder is a BERT model knowledge distilled from a bidirectional version of an open source LLM, further pre-trained for Masked Language Model (MLM) on a large OCR corpus. 
+
+\subsection{Joint Architecture}
+The image encoder and the text encoder are combined using a cross-attention mechanism. The combined model is pre-trained on a large corpus of documents and OCRs for Masked Language Model (MLM), Masked Image Model (MIM) and Document Joint Embedding Predictive Architecture (D-JEPA) objectives. The D-JEPA objective here masks part of the document, and is predicted based on the text encoder, while a masked text is predicted based on the image encoder. 
+
+Then we have a prompt encoder, which is the CLIP model. The prompt encoder is used to encode the question, and the question is used to prompt the model to segment the document.
+
+The mask decoder efficiently maps the image embedding, prompt embeddings, and an output token to a mask. The mask decoder is a transformer decoder block followed by a dynamic mask prediction head. The modified decoder block uses prompt self-attention and cross-attention in two directions (prompt-to-image embedding and vice-versa) to update all embeddings. After running two blocks, we upsample the image embedding and a MLP maps the output token to a dynamic linear classifier, which then computes the mask foreground probability at each image location. With one output, the model will average multiple valid masks if given an ambiguous prompt.
+
+The model is then fine-tuned on the promptable visual segmentation task.
+
+It also includes a data engine which improves model and data via user interaction. 
+
+\subsection{Style}
+
+Papers to be submitted to ICLR 2024 must be prepared according to the
+instructions presented here.
+
+%% Please note that we have introduced automatic line number generation
+%% into the style file for \LaTeXe. This is to help reviewers
+%% refer to specific lines of the paper when they make their comments. Please do
+%% NOT refer to these line numbers in your paper as they will be removed from the
+%% style file for the final version of accepted papers.
+
+Authors are required to use the ICLR \LaTeX{} style files obtainable at the
+ICLR website. Please make sure you use the current files and
+not previous versions. Tweaking the style files may be grounds for rejection.
+
+\subsection{Retrieval of style files}
+
+The style files for ICLR and other conference information are available online at:
+\begin{center}
+   \url{http://www.iclr.cc/}
+\end{center}
+The file \verb+iclr2024_conference.pdf+ contains these
+instructions and illustrates the
+various formatting requirements your ICLR paper must satisfy.
+Submissions must be made using \LaTeX{} and the style files
+\verb+iclr2024_conference.sty+ and \verb+iclr2024_conference.bst+ (to be used with \LaTeX{}2e). The file
+\verb+iclr2024_conference.tex+ may be used as a ``shell'' for writing your paper. All you
+have to do is replace the author, title, abstract, and text of the paper with
+your own.
+
+The formatting instructions contained in these style files are summarized in
+sections \ref{gen_inst}, \ref{headings}, and \ref{others} below.
+
+\section{General formatting instructions}
+\label{gen_inst}
+
+The text must be confined within a rectangle 5.5~inches (33~picas) wide and
+9~inches (54~picas) long. The left margin is 1.5~inch (9~picas).
+Use 10~point type with a vertical spacing of 11~points. Times New Roman is the
+preferred typeface throughout. Paragraphs are separated by 1/2~line space,
+with no indentation.
+
+Paper title is 17~point, in small caps and left-aligned.
+All pages should start at 1~inch (6~picas) from the top of the page.
+
+Authors' names are
+set in boldface, and each name is placed above its corresponding
+address. The lead author's name is to be listed first, and
+the co-authors' names are set to follow. Authors sharing the
+same address can be on the same line.
+
+Please pay special attention to the instructions in section \ref{others}
+regarding figures, tables, acknowledgments, and references.
+
+
+There will be a strict upper limit of 9 pages for the main text of the initial submission, with unlimited additional pages for citations. 
+
+\section{Headings: first level}
+\label{headings}
+
+First level headings are in small caps,
+flush left and in point size 12. One line space before the first level
+heading and 1/2~line space after the first level heading.
+
+\subsection{Headings: second level}
+
+Second level headings are in small caps,
+flush left and in point size 10. One line space before the second level
+heading and 1/2~line space after the second level heading.
+
+\subsubsection{Headings: third level}
+
+Third level headings are in small caps,
+flush left and in point size 10. One line space before the third level
+heading and 1/2~line space after the third level heading.
+
+\section{Citations, figures, tables, references}
+\label{others}
+
+These instructions apply to everyone, regardless of the formatter being used.
+
+\subsection{Citations within the text}
+
+Citations within the text should be based on the \texttt{natbib} package
+and include the authors' last names and year (with the ``et~al.'' construct
+for more than two authors). When the authors or the publication are
+included in the sentence, the citation should not be in parenthesis using \verb|\citet{}| (as
+in ``See \citet{Hinton06} for more information.''). Otherwise, the citation
+should be in parenthesis using \verb|\citep{}| (as in ``Deep learning shows promise to make progress
+towards AI~\citep{Bengio+chapter2007}.'').
+
+The corresponding references are to be listed in alphabetical order of
+authors, in the \textsc{References} section. As to the format of the
+references themselves, any style is acceptable as long as it is used
+consistently.
+
+\subsection{Footnotes}
+
+Indicate footnotes with a number\footnote{Sample of the first footnote} in the
+text. Place the footnotes at the bottom of the page on which they appear.
+Precede the footnote with a horizontal rule of 2~inches
+(12~picas).\footnote{Sample of the second footnote}
+
+\subsection{Figures}
+
+All artwork must be neat, clean, and legible. Lines should be dark
+enough for purposes of reproduction; art work should not be
+hand-drawn. The figure number and caption always appear after the
+figure. Place one line space before the figure caption, and one line
+space after the figure. The figure caption is lower case (except for
+first word and proper nouns); figures are numbered consecutively.
+
+Make sure the figure caption does not get separated from the figure.
+Leave sufficient space to avoid splitting the figure and figure caption.
+
+You may use color figures.
+However, it is best for the
+figure captions and the paper body to make sense if the paper is printed
+either in black/white or in color.
+\begin{figure}[h]
+\begin{center}
+%\framebox[4.0in]{$\;$}
+\fbox{\rule[-.5cm]{0cm}{4cm} \rule[-.5cm]{4cm}{0cm}}
+\end{center}
+\caption{Sample figure caption.}
+\end{figure}
+
+\subsection{Tables}
+
+All tables must be centered, neat, clean and legible. Do not use hand-drawn
+tables. The table number and title always appear before the table. See
+Table~\ref{sample-table}.
+
+Place one line space before the table title, one line space after the table
+title, and one line space after the table. The table title must be lower case
+(except for first word and proper nouns); tables are numbered consecutively.
+
+\begin{table}[t]
+\caption{Sample table title}
+\label{sample-table}
+\begin{center}
+\begin{tabular}{ll}
+\multicolumn{1}{c}{\bf PART}  &\multicolumn{1}{c}{\bf DESCRIPTION}
+\\ \hline \\
+Dendrite         &Input terminal \\
+Axon             &Output terminal \\
+Soma             &Cell body (contains cell nucleus) \\
+\end{tabular}
+\end{center}
+\end{table}
+
+\section{Default Notation}
+
+In an attempt to encourage standardized notation, we have included the
+notation file from the textbook, \textit{Deep Learning}
+\cite{goodfellow2016deep} available at
+\url{https://github.com/goodfeli/dlbook_notation/}.  Use of this style
+is not required and can be disabled by commenting out
+\texttt{math\_commands.tex}.
+
+
+\centerline{\bf Numbers and Arrays}
+\bgroup
+\def\arraystretch{1.5}
+\begin{tabular}{p{1in}p{3.25in}}
+$\displaystyle a$ & A scalar (integer or real)\\
+$\displaystyle \va$ & A vector\\
+$\displaystyle \mA$ & A matrix\\
+$\displaystyle \tA$ & A tensor\\
+$\displaystyle \mI_n$ & Identity matrix with $n$ rows and $n$ columns\\
+$\displaystyle \mI$ & Identity matrix with dimensionality implied by context\\
+$\displaystyle \ve^{(i)}$ & Standard basis vector $[0,\dots,0,1,0,\dots,0]$ with a 1 at position $i$\\
+$\displaystyle \text{diag}(\va)$ & A square, diagonal matrix with diagonal entries given by $\va$\\
+$\displaystyle \ra$ & A scalar random variable\\
+$\displaystyle \rva$ & A vector-valued random variable\\
+$\displaystyle \rmA$ & A matrix-valued random variable\\
+\end{tabular}
+\egroup
+\vspace{0.25cm}
+
+\centerline{\bf Sets and Graphs}
+\bgroup
+\def\arraystretch{1.5}
+
+\begin{tabular}{p{1.25in}p{3.25in}}
+$\displaystyle \sA$ & A set\\
+$\displaystyle \R$ & The set of real numbers \\
+$\displaystyle \{0, 1\}$ & The set containing 0 and 1 \\
+$\displaystyle \{0, 1, \dots, n \}$ & The set of all integers between $0$ and $n$\\
+$\displaystyle [a, b]$ & The real interval including $a$ and $b$\\
+$\displaystyle (a, b]$ & The real interval excluding $a$ but including $b$\\
+$\displaystyle \sA \backslash \sB$ & Set subtraction, i.e., the set containing the elements of $\sA$ that are not in $\sB$\\
+$\displaystyle \gG$ & A graph\\
+$\displaystyle \parents_\gG(\ervx_i)$ & The parents of $\ervx_i$ in $\gG$
+\end{tabular}
+\vspace{0.25cm}
+
+
+\centerline{\bf Indexing}
+\bgroup
+\def\arraystretch{1.5}
+
+\begin{tabular}{p{1.25in}p{3.25in}}
+$\displaystyle \eva_i$ & Element $i$ of vector $\va$, with indexing starting at 1 \\
+$\displaystyle \eva_{-i}$ & All elements of vector $\va$ except for element $i$ \\
+$\displaystyle \emA_{i,j}$ & Element $i, j$ of matrix $\mA$ \\
+$\displaystyle \mA_{i, :}$ & Row $i$ of matrix $\mA$ \\
+$\displaystyle \mA_{:, i}$ & Column $i$ of matrix $\mA$ \\
+$\displaystyle \etA_{i, j, k}$ & Element $(i, j, k)$ of a 3-D tensor $\tA$\\
+$\displaystyle \tA_{:, :, i}$ & 2-D slice of a 3-D tensor\\
+$\displaystyle \erva_i$ & Element $i$ of the random vector $\rva$ \\
+\end{tabular}
+\egroup
+\vspace{0.25cm}
+
+
+\centerline{\bf Calculus}
+\bgroup
+\def\arraystretch{1.5}
+\begin{tabular}{p{1.25in}p{3.25in}}
+% NOTE: the [2ex] on the next line adds extra height to that row of the table.
+% Without that command, the fraction on the first line is too tall and collides
+% with the fraction on the second line.
+$\displaystyle\frac{d y} {d x}$ & Derivative of $y$ with respect to $x$\\ [2ex]
+$\displaystyle \frac{\partial y} {\partial x} $ & Partial derivative of $y$ with respect to $x$ \\
+$\displaystyle \nabla_\vx y $ & Gradient of $y$ with respect to $\vx$ \\
+$\displaystyle \nabla_\mX y $ & Matrix derivatives of $y$ with respect to $\mX$ \\
+$\displaystyle \nabla_\tX y $ & Tensor containing derivatives of $y$ with respect to $\tX$ \\
+$\displaystyle \frac{\partial f}{\partial \vx} $ & Jacobian matrix $\mJ \in \R^{m\times n}$ of $f: \R^n \rightarrow \R^m$\\
+$\displaystyle \nabla_\vx^2 f(\vx)\text{ or }\mH( f)(\vx)$ & The Hessian matrix of $f$ at input point $\vx$\\
+$\displaystyle \int f(\vx) d\vx $ & Definite integral over the entire domain of $\vx$ \\
+$\displaystyle \int_\sS f(\vx) d\vx$ & Definite integral with respect to $\vx$ over the set $\sS$ \\
+\end{tabular}
+\egroup
+\vspace{0.25cm}
+
+\centerline{\bf Probability and Information Theory}
+\bgroup
+\def\arraystretch{1.5}
+\begin{tabular}{p{1.25in}p{3.25in}}
+$\displaystyle P(\ra)$ & A probability distribution over a discrete variable\\
+$\displaystyle p(\ra)$ & A probability distribution over a continuous variable, or over
+a variable whose type has not been specified\\
+$\displaystyle \ra \sim P$ & Random variable $\ra$ has distribution $P$\\% so thing on left of \sim should always be a random variable, with name beginning with \r
+$\displaystyle  \E_{\rx\sim P} [ f(x) ]\text{ or } \E f(x)$ & Expectation of $f(x)$ with respect to $P(\rx)$ \\
+$\displaystyle \Var(f(x)) $ &  Variance of $f(x)$ under $P(\rx)$ \\
+$\displaystyle \Cov(f(x),g(x)) $ & Covariance of $f(x)$ and $g(x)$ under $P(\rx)$\\
+$\displaystyle H(\rx) $ & Shannon entropy of the random variable $\rx$\\
+$\displaystyle \KL ( P \Vert Q ) $ & Kullback-Leibler divergence of P and Q \\
+$\displaystyle \mathcal{N} ( \vx ; \vmu , \mSigma)$ & Gaussian distribution %
+over $\vx$ with mean $\vmu$ and covariance $\mSigma$ \\
+\end{tabular}
+\egroup
+\vspace{0.25cm}
+
+\centerline{\bf Functions}
+\bgroup
+\def\arraystretch{1.5}
+\begin{tabular}{p{1.25in}p{3.25in}}
+$\displaystyle f: \sA \rightarrow \sB$ & The function $f$ with domain $\sA$ and range $\sB$\\
+$\displaystyle f \circ g $ & Composition of the functions $f$ and $g$ \\
+  $\displaystyle f(\vx ; \vtheta) $ & A function of $\vx$ parametrized by $\vtheta$.
+  (Sometimes we write $f(\vx)$ and omit the argument $\vtheta$ to lighten notation) \\
+$\displaystyle \log x$ & Natural logarithm of $x$ \\
+$\displaystyle \sigma(x)$ & Logistic sigmoid, $\displaystyle \frac{1} {1 + \exp(-x)}$ \\
+$\displaystyle \zeta(x)$ & Softplus, $\log(1 + \exp(x))$ \\
+$\displaystyle || \vx ||_p $ & $\normlp$ norm of $\vx$ \\
+$\displaystyle || \vx || $ & $\normltwo$ norm of $\vx$ \\
+$\displaystyle x^+$ & Positive part of $x$, i.e., $\max(0,x)$\\
+$\displaystyle \1_\mathrm{condition}$ & is 1 if the condition is true, 0 otherwise\\
+\end{tabular}
+\egroup
+\vspace{0.25cm}
+
+
+
+\section{Final instructions}
+Do not change any aspects of the formatting parameters in the style files.
+In particular, do not modify the width or length of the rectangle the text
+should fit into, and do not change font sizes (except perhaps in the
+\textsc{References} section; see below). Please note that pages should be
+numbered.
+
+\section{Preparing PostScript or PDF files}
+
+Please prepare PostScript or PDF files with paper size ``US Letter'', and
+not, for example, ``A4''. The -t
+letter option on dvips will produce US Letter files.
+
+Consider directly generating PDF files using \verb+pdflatex+
+(especially if you are a MiKTeX user).
+PDF figures must be substituted for EPS figures, however.
+
+Otherwise, please generate your PostScript and PDF files with the following commands:
+\begin{verbatim}
+dvips mypaper.dvi -t letter -Ppdf -G0 -o mypaper.ps
+ps2pdf mypaper.ps mypaper.pdf
+\end{verbatim}
+
+\subsection{Margins in LaTeX}
+
+Most of the margin problems come from figures positioned by hand using
+\verb+\special+ or other commands. We suggest using the command
+\verb+\includegraphics+
+from the graphicx package. Always specify the figure width as a multiple of
+the line width as in the example below using .eps graphics
+\begin{verbatim}
+   \usepackage[dvips]{graphicx} ...
+   \includegraphics[width=0.8\linewidth]{myfile.eps}
+\end{verbatim}
+or % Apr 2009 addition
+\begin{verbatim}
+   \usepackage[pdftex]{graphicx} ...
+   \includegraphics[width=0.8\linewidth]{myfile.pdf}
+\end{verbatim}
+for .pdf graphics.
+See section~4.4 in the graphics bundle documentation (\url{http://www.ctan.org/tex-archive/macros/latex/required/graphics/grfguide.ps})
+
+A number of width problems arise when LaTeX cannot properly hyphenate a
+line. Please give LaTeX hyphenation hints using the \verb+\-+ command.
+
+\subsubsection*{Author Contributions}
+If you'd like to, you may include  a section for author contributions as is done
+in many journals. This is optional and at the discretion of the authors.
+
+\subsubsection*{Acknowledgments}
+Use unnumbered third level headings for the acknowledgments. All
+acknowledgments, including those to funding agencies, go at the end of the paper.
+
+
+\bibliography{iclr2024_conference}
+\bibliographystyle{iclr2024_conference}
+
+\appendix
+\section{Appendix}
+You may include other additional sections here.
+
+\end{document}
