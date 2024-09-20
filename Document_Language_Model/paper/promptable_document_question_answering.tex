@@ -15,18 +15,17 @@
 \tikzstyle{process} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=orange!30]
 \tikzstyle{arrow} = [thick,->,>=stealth]
 
-\title{Multimodal Foundational Model for Document Question Answering}
+\title{Document Language Model for Document Question Answering}
 
 % Authors must not appear in the submitted version. They should be hidden
 % as long as the \iclrfinalcopy macro remains commented out below.
 % Non-anonymous submissions will be rejected without review.
 
-\author{Arijit Das \thanks{ Use footnote for providing further information
+\author{Arijit Das \thanks{Use footnote for providing further information
 about author (webpage, alternative address)---\emph{not} for acknowledging
-funding agencies.  Funding acknowledgements go at the end of the paper.} \\
+funding agencies. Funding acknowledgements go at the end of the paper.}\\
 Sustella AI\\
-\texttt{arijit.das@selfsupervised.de}
-}
+\texttt{arijit.das@selfsupervised.de}}
 
 % The \author macro works with any number of authors. There are two commands
 % used to separate the names and addresses of multiple authors: \And and \AND.
@@ -46,7 +45,7 @@ Sustella AI\\
 \maketitle
 
 \begin{abstract}
-Multimodal promptable foundational model for document question answering. Introduce Document-JEPA objective. 
+   We aim to build a modular Vision Encoder which extracts text embeddings from documents, which an LLM can interpret after LORA fine-tuning. This allows serving Introduce Document-JEPA objective where image is tokenized using a vision encoder with memory (Heira-Token-Turing-Machine) and is trained to match the text BERT embeddings based on the SigLIP loss. Token Turing Machine solves the tile independence problem with the standard image splitting strategy used in Vision Language Models. 
 \end{abstract}
 
 \section{Introduction}
