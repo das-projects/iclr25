@@ -9,7 +9,7 @@ torchrun --standalone --nproc_per_node 1 torchrun_main.py \
     --total_batch_size 512 \
     --num_training_steps 10000 \
     --warmup_steps 1000 \
-    --weight_decay 0 \
+    --weight_decay 0.01 \
     --dtype bfloat16 \
     --eval_every 1000 \
-    --optimizer galore_adamw 
+    --optimizer galore_adamw8bit
