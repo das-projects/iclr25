@@ -181,7 +181,13 @@ def main(args):
         logger.info(f"{k:30} {v}")
     logger.info("*" * 40)
 
-    data = datasets.load_dataset("allenai/c4", "en", split="train", streaming=True)
+    data = datasets.load_dataset(
+        "allenai/c4",
+        "en",
+        split="train",
+        streaming=True,
+        trust_remote_code=True
+        )
 
     seed_for_shuffle = 42 
     
@@ -320,9 +326,6 @@ def main(args):
     elif args.optimizer.lower() == "galore_adamw":
         # redefine way to call galore_adamw
         optimizer = GaLoreAdamW(param_groups, lr=args.lr, weight_decay=args.weight_decay)
-    elif args.optimizer.lower() == "rsgd_adamw":
-        # redefine way to call galore_adamw
-        optimizer = GaLoreAdamW(param_groups, lr=args.lr, weight_decay=args.weight_decay, projection_type_random=True)
     # implement sgd
     elif args.optimizer.lower() == "sgd":
         optimizer = torch.optim.SGD(trainable_params, lr=args.lr, weight_decay=args.weight_decay, momentum=args.beta1)

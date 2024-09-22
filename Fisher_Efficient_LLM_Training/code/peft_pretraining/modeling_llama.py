@@ -37,11 +37,11 @@ logger = logging.get_logger(__name__)
 _CONFIG_FOR_DOC = "LlamaConfig"
 
 torch_compile_options = {
-    "epilogue_fusion"   : True,
-    "max_autotune"      : True,
+    "epilogue_fusion"   : False,
+    "max_autotune"      : False,
     "shape_padding"     : True,
     "trace.enabled"     : False, # Output Triton kernel outputs!
-    "triton.cudagraphs" : False,
+    "triton.cudagraphs" : True,
 }
 
 

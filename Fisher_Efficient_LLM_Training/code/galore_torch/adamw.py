@@ -45,7 +45,7 @@ class AdamW(Optimizer):
         weight_decay: float = 0.0,
         correct_bias: bool = True,
         no_deprecation_warning: bool = True,
-        projection_type_random: bool = False,
+        projection_type_random: bool = True,
     ):
         if not no_deprecation_warning:
             warnings.warn(
