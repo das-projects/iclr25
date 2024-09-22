@@ -215,7 +215,10 @@ def main(args):
     dataset = PreprocessedIterableDataset(data, tokenizer, batch_size=args.batch_size, max_length=args.max_length)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=None, num_workers=args.workers, pin_memory=True)
 
-    model_config = AutoConfig.from_pretrained(args.model_config, trust_remote_code=True)
+    model_config = AutoConfig.from_pretrained(
+        args.model_config,
+        trust_remote_code=True
+        )
     if args.use_hf_model:
         model: HF_LlamaForCausalLM = AutoModelForCausalLM.from_config(model_config)
     else:
@@ -545,7 +548,10 @@ def main(args):
     if global_rank == 0 and not os.path.exists(current_model_directory):
         logger.info(f"Saving model and optimizer to {current_model_directory}, update step {update_step}")
         os.makedirs(args.save_dir, exist_ok=True)
-        model.module.save_pretrained(current_model_directory)
+        model.save_pretrained(
+            current_model_directory,
+            max_shard_size='5GB'
+            )
 
         optimizer_checkpoint = {
             "optimizer": optimizer.state_dict(),
@@ -576,7 +582,13 @@ def main(args):
     torch.cuda.empty_cache()
 
     total_loss, evaluated_on_tokens = evaluate_model(
-        model, preprocess_batched, pad_idx, global_rank, world_size, device, args.batch_size
+        model,
+        preprocess_batched,
+        pad_idx,
+        global_rank,
+        world_size,
+        device,
+        args.batch_size
     )
 
     if global_rank == 0:
