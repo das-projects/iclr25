@@ -35,7 +35,7 @@ torch_compile_options = {
     "max_autotune"      : False,
     "shape_padding"     : True,
     "trace.enabled"     : False, # Output Triton kernel outputs!
-    "triton.cudagraphs" : False,
+    "triton.cudagraphs" : True,
 }
 
 def parse_args(args):
