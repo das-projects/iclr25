@@ -54,7 +54,7 @@ def parse_args(args):
     parser.add_argument("--max_train_tokens", type=training_utils.max_train_tokens_to_number, default=None,
                         help="Number of tokens to train on. Overwrites num_training_steps. "
                              "You can use M and B suffixes, e.g. 100M or 1B.")
-    parser.add_argument("--save_every", type=int, default=100)
+    parser.add_argument("--save_every", type=int, default=1_000)
     parser.add_argument("--save_dir", type=str, default=None)
     parser.add_argument("--tags", type=str, default=None)
     parser.add_argument("--dtype", type=str, default="bfloat16" if torch.cuda.is_bf16_supported() else "float32")
@@ -130,6 +130,7 @@ def main(args):
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
+    torch.set_float32_matmul_precision("medium")
 
     assert "LOCAL_RANK" in os.environ, "torchrun should set LOCAL_RANK"
     global_rank = int(os.environ['RANK'])
@@ -200,8 +201,6 @@ def main(args):
         model: HF_LlamaForCausalLM = AutoModelForCausalLM.from_config(model_config)
     else:
         model = LlamaForCausalLM(model_config)
-    # else:
-    #     model = LlamaForCausalLM(model_config)
 
     if args.activation_checkpointing:
         model.gradient_checkpointing_enable()
@@ -391,7 +390,7 @@ def main(args):
         )
 
     # global steps and others are defined above
-    pad_idx = tokenizer.eos_token_id
+    pad_idx = tokenizer.pad_token_id
     update_time = time.time()
     local_step = 0  # when continue_from is used, local_step != global_step
 
@@ -403,9 +402,7 @@ def main(args):
     # 2x training performance increase via compilation and shape padding
     model = torch.compile(model, options={
         # "triton.cudagraphs": True,
-        "shape_padding": True,
-        # "max_autotune": True,
-        # "epilogue_fusion": True
+        "shape_padding": True
         }
     )
     for batch_idx, batch in enumerate(dataloader):
@@ -421,8 +418,9 @@ def main(args):
         labels = batch["input_ids"].clone()
         labels[labels == pad_idx] = -100
         tokens_seen += (batch["input_ids"] != pad_idx).sum().item() * world_size
-
-        loss = model(**batch, labels=labels).loss
+        with torch.autocast(device_type=device, dtype=torch.bfloat16):
+            loss = model(**batch, labels=labels).loss
+            assert loss.dtype is torch.bfloat16, f"Loss is not bfloat16, but {loss.dtype}"
 
         scaled_loss = loss / args.gradient_accumulation
         scaled_loss.backward()

@@ -54,7 +54,7 @@ def parse_args(args):
     parser.add_argument("--max_train_tokens", type=training_utils.max_train_tokens_to_number, default=None,
                         help="Number of tokens to train on. Overwrites num_training_steps. "
                              "You can use M and B suffixes, e.g. 100M or 1B.")
-    parser.add_argument("--save_every", type=int, default=100)
+    parser.add_argument("--save_every", type=int, default=1_000)
     parser.add_argument("--save_dir", type=str, default=None)
     parser.add_argument("--tags", type=str, default=None)
     parser.add_argument("--dtype", type=str, default="bfloat16" if torch.cuda.is_bf16_supported() else "float32")
@@ -200,8 +200,6 @@ def main(args):
         model: HF_LlamaForCausalLM = AutoModelForCausalLM.from_config(model_config)
     else:
         model = LlamaForCausalLM(model_config)
-    # else:
-    #     model = LlamaForCausalLM(model_config)
 
     if args.activation_checkpointing:
         model.gradient_checkpointing_enable()
@@ -391,7 +389,7 @@ def main(args):
         )
 
     # global steps and others are defined above
-    pad_idx = tokenizer.eos_token_id
+    pad_idx = tokenizer.pad_token_id
     update_time = time.time()
     local_step = 0  # when continue_from is used, local_step != global_step
 
@@ -404,8 +402,8 @@ def main(args):
     model = torch.compile(model, options={
         # "triton.cudagraphs": True,
         "shape_padding": True,
-        # "max_autotune": True,
-        # "epilogue_fusion": True
+        "max_autotune": True,
+        "epilogue_fusion": True
         }
     )
     for batch_idx, batch in enumerate(dataloader):
