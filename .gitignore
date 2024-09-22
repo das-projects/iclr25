@@ -174,3 +174,4 @@ optimizer.pt
 
 # WANDB
 wandb/
+wandb/latest-run/

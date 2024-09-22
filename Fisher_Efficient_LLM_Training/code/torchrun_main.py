@@ -30,6 +30,14 @@ from galore_torch import GaLoreAdamW, GaLoreAdamW8bit, GaLoreAdafactor
 
 transformers.logging.set_verbosity_error()
 
+torch_compile_options = {
+    "epilogue_fusion"   : False,
+    "max_autotune"      : False,
+    "shape_padding"     : True,
+    "trace.enabled"     : False, # Output Triton kernel outputs!
+    "triton.cudagraphs" : False,
+}
+
 def parse_args(args):
     parser = argparse.ArgumentParser()
 
@@ -83,7 +91,13 @@ def parse_args(args):
 @torch.no_grad()
 def evaluate_model(model, preprocess_batched, pad_idx, global_rank, world_size, device, batch_size):
     _time = time.time()
-    val_data = datasets.load_dataset("c4", "en", split="validation", streaming=True) #DGX
+    val_data = datasets.load_dataset(
+        "allenai/c4",
+        "en",
+        split="validation",
+        streaming=True,
+        trust_remote_code=True
+        ) #DGX
     val_data = val_data.shuffle(seed=42)
     logger.info(f"Loaded validation dataset in {time.time() - _time:.2f} seconds")
 
@@ -408,13 +422,8 @@ def main(args):
     # ##############################
 
     # 2x training performance increase via compilation and shape padding
-    model = torch.compile(model, options={
-        # "triton.cudagraphs": True,
-        "shape_padding": True,
-        # "max_autotune": True,
-        # "epilogue_fusion": True
-        }
-    )
+    model = torch.compile(model, options=torch_compile_options)
+
     for batch_idx, batch in enumerate(dataloader):
         global_step += 1
         local_step += 1
