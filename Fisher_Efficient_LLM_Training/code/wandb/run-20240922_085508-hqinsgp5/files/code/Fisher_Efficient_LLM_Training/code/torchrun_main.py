@@ -72,7 +72,7 @@ def parse_args(args):
     parser.add_argument("--proj_type", type=str, default="std")
     
     # disable ddp, single_gpu
-    parser.add_argument("--single_gpu", default=True, action="store_true")
+    parser.add_argument("--single_gpu", default=False, action="store_true")
     
     args = parser.parse_args(args)
 
@@ -195,7 +195,7 @@ def main(args):
     dataset = PreprocessedIterableDataset(data, tokenizer, batch_size=args.batch_size, max_length=args.max_length)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=None, num_workers=args.workers)
 
-    model_config = AutoConfig.from_pretrained(args.model_config, trust_remote_code=True)
+    model_config = AutoConfig.from_pretrained(args.model_config)
     if args.use_hf_model:
         model: HF_LlamaForCausalLM = AutoModelForCausalLM.from_config(model_config)
     else:
