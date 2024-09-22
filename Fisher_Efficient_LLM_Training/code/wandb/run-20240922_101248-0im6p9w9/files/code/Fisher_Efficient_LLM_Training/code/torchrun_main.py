@@ -399,7 +399,7 @@ def main(args):
     # ##############################
 
     model = torch.compile(model, options={
-        # "triton.cudagraphs": True,
+        "triton.cudagraphs": True,
         "shape_padding": True
         }
     )

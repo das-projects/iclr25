@@ -398,11 +398,6 @@ def main(args):
     # we'll never go through all the data, so no need for epochs
     # ##############################
 
-    model = torch.compile(model, options={
-        # "triton.cudagraphs": True,
-        "shape_padding": True
-        }
-    )
     for batch_idx, batch in enumerate(dataloader):
 
         global_step += 1
@@ -446,8 +441,7 @@ def main(args):
             current_model_directory = f"{args.save_dir}/model_{update_step}"
             logger.info(f"Saving model and optimizer to {current_model_directory}, update step {update_step}")
             os.makedirs(args.save_dir, exist_ok=True)
-            model.modules.save_pretrained(current_model_directory, max_shard_size='100GB')
-
+            model.module.save_pretrained(current_model_directory, max_shard_size='100GB')
 
             optimizer_checkpoint = {
                 "optimizer": optimizer.state_dict(),
