@@ -320,6 +320,9 @@ def main(args):
     elif args.optimizer.lower() == "galore_adamw":
         # redefine way to call galore_adamw
         optimizer = GaLoreAdamW(param_groups, lr=args.lr, weight_decay=args.weight_decay)
+    elif args.optimizer.lower() == "rsgd_adamw":
+        # redefine way to call rsgd_adamw
+        optimizer = GaLoreAdamW(param_groups, lr=args.lr, weight_decay=args.weight_decay, projection_type_random=True)
     # implement sgd
     elif args.optimizer.lower() == "sgd":
         optimizer = torch.optim.SGD(trainable_params, lr=args.lr, weight_decay=args.weight_decay, momentum=args.beta1)

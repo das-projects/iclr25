@@ -12,4 +12,4 @@ torchrun --standalone --nproc_per_node 1 torchrun_main.py \
     --weight_decay 0.01 \
     --dtype bfloat16 \
     --eval_every 1000 \
-    --optimizer galore_adamw
+    --optimizer rsgd_adamw

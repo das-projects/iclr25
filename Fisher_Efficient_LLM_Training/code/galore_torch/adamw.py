@@ -11,6 +11,7 @@ from transformers.utils.versions import require_version
 
 from .galore_projector import GaLoreProjector
 from .galore_projector_tensor import GaLoreProjectorTensor
+from .random_projector import RandomProjector
 
 
 class AdamW(Optimizer):
@@ -43,7 +44,8 @@ class AdamW(Optimizer):
         eps: float = 1e-6,
         weight_decay: float = 0.0,
         correct_bias: bool = True,
-        no_deprecation_warning: bool = False,
+        no_deprecation_warning: bool = True,
+        projection_type_random: bool = False,
     ):
         if not no_deprecation_warning:
             warnings.warn(
@@ -63,6 +65,7 @@ class AdamW(Optimizer):
             raise ValueError(f"Invalid epsilon value: {eps} - should be >= 0.0")
         defaults = {"lr": lr, "betas": betas, "eps": eps, "weight_decay": weight_decay, "correct_bias": correct_bias}
         super().__init__(params, defaults)
+        self.projection_type_random = projection_type_random
 
     @torch.no_grad()
     def step(self, closure: Callable = None):
@@ -95,10 +98,13 @@ class AdamW(Optimizer):
                 # GaLore Projection
                 if "rank" in group:
                     if "projector" not in state:
-                        if group['dim'] <=2:
-                            state["projector"] = GaLoreProjector(group["rank"], update_proj_gap=group["update_proj_gap"], scale=group["scale"], proj_type=group["proj_type"])
+                        if not self.projection_type_random:
+                            if group['dim'] <=2:
+                                state["projector"] = GaLoreProjector(group["rank"], update_proj_gap=group["update_proj_gap"], scale=group["scale"], proj_type=group["proj_type"])
+                            else:
+                                state["projector"] = GaLoreProjectorTensor(group["rank"], update_proj_gap=group["update_proj_gap"], scale=group["scale"], proj_type=group["proj_type"])
                         else:
-                            state["projector"] = GaLoreProjectorTensor(group["rank"], update_proj_gap=group["update_proj_gap"], scale=group["scale"], proj_type=group["proj_type"])
+                            state["projector"] = RandomProjector(rank=group["rank"], update_proj_gap=group["update_proj_gap"], scale=group["scale"], proj_type=group["proj_type"])
                     grad = state["projector"].project(grad, state["step"])
 
                 # State initialization
