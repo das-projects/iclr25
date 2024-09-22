@@ -32,10 +32,19 @@ from transformers.modeling_utils import PreTrainedModel
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward, logging, replace_return_docstrings
 from transformers.models.llama.configuration_llama import LlamaConfig
 
+from .rms_layernorm import Fast_RMS_Layernorm
 
 logger = logging.get_logger(__name__)
 
 _CONFIG_FOR_DOC = "LlamaConfig"
+
+torch_compile_options = {
+    "epilogue_fusion"   : True,
+    "max_autotune"      : True,
+    "shape_padding"     : True,
+    "trace.enabled"     : False, # Output Triton kernel outputs!
+    "triton.cudagraphs" : False,
+}
 
 
 # Copied from transformers.models.bart.modeling_bart._make_causal_mask
@@ -70,26 +79,26 @@ def _expand_mask(mask: torch.Tensor, dtype: torch.dtype, tgt_len: Optional[int] 
 
     return inverted_mask.masked_fill(inverted_mask.to(torch.bool), torch.finfo(dtype).min)
 
+@torch.compile(fullgraph = False, dynamic = True, options = torch_compile_options)
+def fast_layernorm_compiled(hidden_states, weight, variance_epsilon):
+    old_dtype = hidden_states.dtype
+    hidden_states = hidden_states.float()
+    mean = hidden_states.mean(-1, keepdim = True)
+    Xbar = hidden_states - mean
+    hidden_states = Xbar * torch.rsqrt(Xbar.square().mean(-1, keepdim = True) + \
+        variance_epsilon) * \
+        weight.float()
+    return hidden_states.to(old_dtype)
+pass
 
 class LlamaRMSNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6):
-        """
-        LlamaRMSNorm is equivalent to T5LayerNorm
-        """
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
         self.variance_epsilon = eps
 
     def forward(self, hidden_states):
-        variance = hidden_states.to(torch.float32).pow(2).mean(-1, keepdim=True)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
-
-        # convert into half-precision if necessary
-        if self.weight.dtype in [torch.float16, torch.bfloat16]:
-            hidden_states = hidden_states.to(self.weight.dtype)
-
-        return self.weight * hidden_states
-
+        return fast_layernorm_compiled(hidden_states, self.weight, self.variance_epsilon)
 
 class LlamaRotaryEmbedding(torch.nn.Module):
     def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
