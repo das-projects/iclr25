@@ -321,7 +321,7 @@ def main(args):
         # redefine way to call galore_adamw
         optimizer = GaLoreAdamW(param_groups, lr=args.lr, weight_decay=args.weight_decay)
     elif args.optimizer.lower() == "rsgd_adamw":
-        # redefine way to call rsgd_adamw
+        # redefine way to call galore_adamw
         optimizer = GaLoreAdamW(param_groups, lr=args.lr, weight_decay=args.weight_decay, projection_type_random=True)
     # implement sgd
     elif args.optimizer.lower() == "sgd":
