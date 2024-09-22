@@ -167,3 +167,10 @@ cython_debug/
 *.fls
 *.out
 *.synctex.gz
+
+# Models
+model.safetensors
+optimizer.pt
+
+# WANDB
+wandb/
