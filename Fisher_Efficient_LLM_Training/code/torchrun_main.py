@@ -176,7 +176,7 @@ def main(args):
         
     logger.info(f"Using dist with rank {global_rank} (only rank 0 will log)")
     logger.info("*" * 40)
-    logger.info(f"Starting training with the arguments")
+    logger.info("Starting training with the arguments")
     for k, v in vars(args).items():
         logger.info(f"{k:30} {v}")
     logger.info("*" * 40)
@@ -241,7 +241,7 @@ def main(args):
         logger.info(f"Loading model from {args.continue_from}")
         checkpoint_path = os.path.join(args.continue_from, "pytorch_model.bin")
         model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"), strict=True)
-        logger.info(f"Model successfully loaded (strict=True policy)")
+        logger.info("Model successfully loaded (strict=True policy)")
 
         if os.path.exists(os.path.join(args.continue_from, "training_state.json")):
             logger.info(f"Loading training state like global_step, update_step, and tokens_seen from {args.continue_from}")
