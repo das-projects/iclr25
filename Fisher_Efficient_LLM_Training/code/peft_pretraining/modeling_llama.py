@@ -131,6 +131,48 @@ class LlamaRotaryEmbedding(torch.nn.Module):
             self.sin_cached[:, :, :seq_len, ...].to(dtype=x.dtype),
         )
 
+class Slow_RoPE_Embedding(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, Q, cos, sin, position_ids):
+        if position_ids is not None:
+            # The first two dimensions of cos and sin are always 1, so we can `squeeze` them.
+            cos = cos.squeeze(1).squeeze(0)  # [seq_len, dim]
+            sin = sin.squeeze(1).squeeze(0)  # [seq_len, dim]
+            cos = cos[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
+            sin = sin[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
+
+        # Q * cos + rotate_half(Q) * sin
+        half = Q.shape[-1]//2
+        RH_Q = torch.cat((-Q[..., half:], Q[..., :half]), dim = -1)
+        Q *= cos
+        Q.addcmul_(RH_Q, sin)
+        # RH_Q *= sin
+        # Q += RH_Q
+        ctx.save_for_backward(cos, sin)
+        return Q
+    pass
+
+    @staticmethod
+    def backward(ctx, dY):
+        cos, sin = ctx.saved_tensors
+        # Q * cos + rotate_half.T(Q) * sin
+        half = dY.shape[-1]//2
+        RH_dY = torch.cat((dY[..., half:], -dY[..., :half]), dim = -1)
+        dY *= cos
+        dY.addcmul_(RH_dY, sin)
+        # RH_dY *= sin
+        # dY += RH_dY
+        return dY, None, None, None
+    pass
+pass
+
+@torch.compile(fullgraph = False, dynamic = True, options = torch_compile_options)
+def inplace_rope_embedding(Q, K, cos, sin, position_ids):
+    Q = Slow_RoPE_Embedding.apply(Q, cos, sin, position_ids)
+    K = Slow_RoPE_Embedding.apply(K, cos, sin, position_ids)
+    return Q, K
+pass
+
 
 def rotate_half(x):
     """Rotates half the hidden dims of the input."""
@@ -211,7 +253,7 @@ class LlamaAttention(nn.Module):
         if past_key_value is not None:
             kv_seq_len += past_key_value[0].shape[-2]
         cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+        query_states, key_states = inplace_rope_embedding(query_states, key_states, cos, sin, position_ids)
         # [bsz, nh, t, hd]
 
         if past_key_value is not None:
