@@ -18,7 +18,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ PyTorch LLaMA model."""
-import math
+# import math
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -31,6 +31,8 @@ from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutpu
 from transformers.modeling_utils import PreTrainedModel
 from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward, logging, replace_return_docstrings
 from transformers.models.llama.configuration_llama import LlamaConfig
+
+from .cross_entropy_loss import fast_cross_entropy_loss
 
 logger = logging.get_logger(__name__)
 
@@ -910,8 +912,8 @@ class LlamaForSequenceClassification(LlamaPreTrainedModel):
                 else:
                     loss = loss_fct(pooled_logits, labels)
             elif self.config.problem_type == "single_label_classification":
-                loss_fct = CrossEntropyLoss()
-                loss = loss_fct(pooled_logits.view(-1, self.num_labels), labels.view(-1))
+                # loss_fct = CrossEntropyLoss()
+                loss = fast_cross_entropy_loss(pooled_logits.view(-1, self.num_labels), labels.view(-1))
             elif self.config.problem_type == "multi_label_classification":
                 loss_fct = BCEWithLogitsLoss()
                 loss = loss_fct(pooled_logits, labels)
