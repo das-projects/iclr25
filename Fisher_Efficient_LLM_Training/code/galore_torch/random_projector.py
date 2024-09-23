@@ -81,8 +81,9 @@ class RandomProjector:
 
         #make the smaller matrix always to be orthogonal matrix
         if type=='right':
-            B = torch.randn(self.rank, matrix.shape[1]) / self.rank
-            B = gram_schmidt(B.t()).t()
+            B = torch.randn(matrix.shape[1], self.rank) / self.rank
+            B = gram_schmidt(B)
+            B = B.t()
             if not float_data:
                 B = B.to(original_device).type(original_type)
             return B
@@ -94,9 +95,10 @@ class RandomProjector:
             return A
         elif type=='full':
             A = torch.randn(matrix.shape[0], self.rank) / self.rank
-            B = torch.randn(self.rank, matrix.shape[1]) / self.rank
+            B = torch.randn(matrix.shape[1], self.rank) / self.rank
             A = gram_schmidt(A)
-            B = gram_schmidt(B.t()).t()
+            B = gram_schmidt(B)
+            B = B.t()
             if not float_data:
                 A = A.to(original_device).type(original_type)
                 B = B.to(original_device).type(original_type)
@@ -112,7 +114,7 @@ def gram_schmidt(A):
     Returns:
         Q (torch.Tensor): Orthogonal matrix of the same size as A.
     """
-    n, _ = A.shape
+    _, n = A.shape
     Q = torch.zeros_like(A)
 
     for i in range(n):
