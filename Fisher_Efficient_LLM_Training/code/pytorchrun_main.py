@@ -6,8 +6,7 @@ import torch.nn as nn
 import torch.utils.data
 
 import transformers
-from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM
-from transformers import LlamaForCausalLM as HF_LlamaForCausalLM
+from transformers import AutoConfig, AutoTokenizer
 
 import datasets
 import datasets.distributed
@@ -192,10 +191,7 @@ class LlamaLightningModule(pl.LightningModule):
         model_config = AutoConfig.from_pretrained(
             args.model_config, trust_remote_code=True
         )
-        if args.use_hf_model:
-            self.model = AutoModelForCausalLM.from_config(model_config)
-        else:
-            self.model = LlamaForCausalLM(model_config)
+        self.model = LlamaForCausalLM(model_config)
         self.model.generation_config.pad_token_id = tokenizer.pad_token_id
 
         if args.activation_checkpointing:
