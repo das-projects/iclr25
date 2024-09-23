@@ -42,7 +42,7 @@ from transformers import (
     SchedulerType,
     default_data_collator,
     get_scheduler,
-    LlamaForSequenceClassification
+    LlamaForSequenceClassification,
 )
 from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
@@ -54,7 +54,10 @@ from galore_torch import GaLoreAdamW
 
 logger = get_logger(__name__)
 
-require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/text-classification/requirements.txt")
+require_version(
+    "datasets>=1.8.0",
+    "To fix: pip install -r examples/pytorch/text-classification/requirements.txt",
+)
 
 task_to_keys = {
     "cola": ("sentence", None),
@@ -70,7 +73,9 @@ task_to_keys = {
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Finetune a transformers model on a text classification task")
+    parser = argparse.ArgumentParser(
+        description="Finetune a transformers model on a text classification task"
+    )
 
     # LoRA hyperparameters
     parser.add_argument("--lora_r", type=int, default=8)
@@ -84,10 +89,16 @@ def parse_args():
         choices=list(task_to_keys.keys()),
     )
     parser.add_argument(
-        "--train_file", type=str, default=None, help="A csv or a json file containing the training data."
+        "--train_file",
+        type=str,
+        default=None,
+        help="A csv or a json file containing the training data.",
     )
     parser.add_argument(
-        "--validation_file", type=str, default=None, help="A csv or a json file containing the validation data."
+        "--validation_file",
+        type=str,
+        default=None,
+        help="A csv or a json file containing the validation data.",
     )
     parser.add_argument(
         "--max_length",
@@ -132,8 +143,15 @@ def parse_args():
         default=5e-5,
         help="Initial learning rate (after the potential warmup period) to use.",
     )
-    parser.add_argument("--weight_decay", type=float, default=0.0, help="Weight decay to use.")
-    parser.add_argument("--num_train_epochs", type=int, default=3, help="Total number of training epochs to perform.")
+    parser.add_argument(
+        "--weight_decay", type=float, default=0.0, help="Weight decay to use."
+    )
+    parser.add_argument(
+        "--num_train_epochs",
+        type=int,
+        default=3,
+        help="Total number of training epochs to perform.",
+    )
     parser.add_argument(
         "--max_train_steps",
         type=int,
@@ -151,18 +169,40 @@ def parse_args():
         type=SchedulerType,
         default="linear",
         help="The scheduler type to use.",
-        choices=["linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"],
+        choices=[
+            "linear",
+            "cosine",
+            "cosine_with_restarts",
+            "polynomial",
+            "constant",
+            "constant_with_warmup",
+        ],
     )
     parser.add_argument(
-        "--num_warmup_steps", type=int, default=0, help="Number of steps for the warmup in the lr scheduler."
+        "--num_warmup_steps",
+        type=int,
+        default=0,
+        help="Number of steps for the warmup in the lr scheduler.",
     )
-    parser.add_argument("--output_dir", type=str, default=None, help="Where to store the final model.")
-    parser.add_argument("--seed", type=int, default=None, help="A seed for reproducible training.")
-    parser.add_argument("--push_to_hub", action="store_true", help="Whether or not to push the model to the Hub.")
     parser.add_argument(
-        "--hub_model_id", type=str, help="The name of the repository to keep in sync with the local `output_dir`."
+        "--output_dir", type=str, default=None, help="Where to store the final model."
     )
-    parser.add_argument("--hub_token", type=str, help="The token to use to push to the Model Hub.")
+    parser.add_argument(
+        "--seed", type=int, default=None, help="A seed for reproducible training."
+    )
+    parser.add_argument(
+        "--push_to_hub",
+        action="store_true",
+        help="Whether or not to push the model to the Hub.",
+    )
+    parser.add_argument(
+        "--hub_model_id",
+        type=str,
+        help="The name of the repository to keep in sync with the local `output_dir`.",
+    )
+    parser.add_argument(
+        "--hub_token", type=str, help="The token to use to push to the Model Hub."
+    )
     parser.add_argument(
         "--trust_remote_code",
         type=bool,
@@ -205,9 +245,13 @@ def parse_args():
         action="store_true",
         help="Whether or not to enable to load a pretrained model whose head dimensions are different.",
     )
-    
+
     # support enable_galore
-    parser.add_argument("--enable_galore", action="store_true", help="Whether or not to use low rank optimizer.")
+    parser.add_argument(
+        "--enable_galore",
+        action="store_true",
+        help="Whether or not to use low rank optimizer.",
+    )
     # update_proj_gap
     parser.add_argument("--update_proj_gap", type=int, default=50)
     # galore_scale
@@ -215,27 +259,52 @@ def parse_args():
     # proj_type
     parser.add_argument("--proj_type", type=str, default="std")
     # lora_all_modules
-    parser.add_argument("--lora_all_modules", action="store_true", help="Whether or not to use lora for all modules.")
+    parser.add_argument(
+        "--lora_all_modules",
+        action="store_true",
+        help="Whether or not to use lora for all modules.",
+    )
     # eval_llama
-    parser.add_argument("--eval_llama", action="store_true", help="Whether or not to evaluate llama model.")
+    parser.add_argument(
+        "--eval_llama",
+        action="store_true",
+        help="Whether or not to evaluate llama model.",
+    )
     # low_rank_method
-    parser.add_argument("--low_rank_method", type=str, default=None, help="low rank method for wandb sweep")
-    
+    parser.add_argument(
+        "--low_rank_method",
+        type=str,
+        default=None,
+        help="low rank method for wandb sweep",
+    )
+
     args = parser.parse_args()
-    
+
     # Sanity checks
-    if args.task_name is None and args.train_file is None and args.validation_file is None:
+    if (
+        args.task_name is None
+        and args.train_file is None
+        and args.validation_file is None
+    ):
         raise ValueError("Need either a task name or a training/validation file.")
     else:
         if args.train_file is not None:
             extension = args.train_file.split(".")[-1]
-            assert extension in ["csv", "json"], "`train_file` should be a csv or a json file."
+            assert extension in [
+                "csv",
+                "json",
+            ], "`train_file` should be a csv or a json file."
         if args.validation_file is not None:
             extension = args.validation_file.split(".")[-1]
-            assert extension in ["csv", "json"], "`validation_file` should be a csv or a json file."
+            assert extension in [
+                "csv",
+                "json",
+            ], "`validation_file` should be a csv or a json file."
 
     if args.push_to_hub:
-        assert args.output_dir is not None, "Need an `output_dir` to create a repo when `--push_to_hub` is passed."
+        assert (
+            args.output_dir is not None
+        ), "Need an `output_dir` to create a repo when `--push_to_hub` is passed."
 
     return args
 
@@ -250,7 +319,9 @@ def main():
     # If we're using tracking, we also need to initialize it here and it will by default pick up all supported trackers
     # in the environment
     accelerator = (
-        Accelerator(log_with=args.report_to, project_dir=args.output_dir) if args.with_tracking else Accelerator()
+        Accelerator(log_with=args.report_to, project_dir=args.output_dir)
+        if args.with_tracking
+        else Accelerator()
     )
     # Make one log on every process with the configuration for debugging.
     logging.basicConfig(
@@ -278,7 +349,9 @@ def main():
             if repo_name is None:
                 repo_name = Path(args.output_dir).absolute().name
             # Create repo and retrieve repo_id
-            repo_id = create_repo(repo_name, exist_ok=True, token=args.hub_token).repo_id
+            repo_id = create_repo(
+                repo_name, exist_ok=True, token=args.hub_token
+            ).repo_id
             # Clone repo locally
             repo = Repository(args.output_dir, clone_from=repo_id, token=args.hub_token)
 
@@ -313,7 +386,9 @@ def main():
             data_files["train"] = args.train_file
         if args.validation_file is not None:
             data_files["validation"] = args.validation_file
-        extension = (args.train_file if args.train_file is not None else args.validation_file).split(".")[-1]
+        extension = (
+            args.train_file if args.train_file is not None else args.validation_file
+        ).split(".")[-1]
         raw_datasets = load_dataset(extension, data_files=data_files)
     # See more about loading any type of standard or custom dataset at
     # https://huggingface.co/docs/datasets/loading_datasets.
@@ -328,7 +403,10 @@ def main():
             num_labels = 1
     else:
         # Trying to have good defaults here, don't hesitate to tweak to your needs.
-        is_regression = raw_datasets["train"].features["label"].dtype in ["float32", "float64"]
+        is_regression = raw_datasets["train"].features["label"].dtype in [
+            "float32",
+            "float64",
+        ]
         if is_regression:
             num_labels = 1
         else:
@@ -337,7 +415,7 @@ def main():
             label_list = raw_datasets["train"].unique("label")
             label_list.sort()  # Let's sort it for determinism
             num_labels = len(label_list)
-    
+
     # Load pretrained model and tokenizer
     #
     # In distributed training, the .from_pretrained methods guarantee that only one local process can concurrently
@@ -351,7 +429,9 @@ def main():
             trust_remote_code=args.trust_remote_code,
         )
         tokenizer = AutoTokenizer.from_pretrained(
-            args.model_name_or_path, use_fast=not args.use_slow_tokenizer, trust_remote_code=args.trust_remote_code
+            args.model_name_or_path,
+            use_fast=not args.use_slow_tokenizer,
+            trust_remote_code=args.trust_remote_code,
         )
         model = AutoModelForSequenceClassification.from_pretrained(
             args.model_name_or_path,
@@ -362,13 +442,13 @@ def main():
         )
     else:
         config = AutoConfig.from_pretrained(args.model_name_or_path)
-        setattr(config, 'num_labels', num_labels)
-        setattr(config, 'finetuning_task', args.task_name)
-        tokenizer = AutoTokenizer.from_pretrained("t5-base", model_max_length=args.max_length)
-        tokenizer.padding_side = "left"
-        model = LlamaForSequenceClassification(
-            config
+        setattr(config, "num_labels", num_labels)
+        setattr(config, "finetuning_task", args.task_name)
+        tokenizer = AutoTokenizer.from_pretrained(
+            "t5-base", model_max_length=args.max_length
         )
+        tokenizer.padding_side = "left"
+        model = LlamaForSequenceClassification(config)
     ## load pretrained model
     if args.load_pretrained_model:
         logger.info("*" * 40)
@@ -378,36 +458,55 @@ def main():
         for key in checkpoint.keys():
             if key not in model.state_dict().keys():
                 print(f"key {key} not in model state dict")
-        
+
         for key in model.state_dict().keys():
             if key not in checkpoint.keys():
                 print(f"key {key} not in checkpoint")
         model.load_state_dict(checkpoint, strict=False)
         logger.info(f"Model successfully loaded (strict=False policy)")
         logger.info("*" * 40)
-        
+
     # project modules
     if not args.lora_all_modules:
         target_modules_list = ["q_proj", "v_proj"]
     else:
-        print('Enabling LoRA for all modules')
-        target_modules_list = ["q_proj", "v_proj", "up_proj", "down_proj", "gate_proj", "k_proj", "o_proj"]
-        
+        print("Enabling LoRA for all modules")
+        target_modules_list = [
+            "q_proj",
+            "v_proj",
+            "up_proj",
+            "down_proj",
+            "gate_proj",
+            "k_proj",
+            "o_proj",
+        ]
+
     # other modules for bert-family modules
-    if 'bert' in args.model_name_or_path:
+    if "bert" in args.model_name_or_path:
         if not args.lora_all_modules:
             target_modules_list = ["query"]
         else:
-            print('Enabling LoRA for all modules')
-            target_modules_list = ["query", "value", "key", "intermediate.dense", "output.dense"]
-    
+            print("Enabling LoRA for all modules")
+            target_modules_list = [
+                "query",
+                "value",
+                "key",
+                "intermediate.dense",
+                "output.dense",
+            ]
+
     # Preprocessing the datasets
     if args.task_name is not None:
         sentence1_key, sentence2_key = task_to_keys[args.task_name]
     else:
         # Again, we try to have some nice defaults but don't hesitate to tweak to your use case.
-        non_label_column_names = [name for name in raw_datasets["train"].column_names if name != "label"]
-        if "sentence1" in non_label_column_names and "sentence2" in non_label_column_names:
+        non_label_column_names = [
+            name for name in raw_datasets["train"].column_names if name != "label"
+        ]
+        if (
+            "sentence1" in non_label_column_names
+            and "sentence2" in non_label_column_names
+        ):
             sentence1_key, sentence2_key = "sentence1", "sentence2"
         else:
             if len(non_label_column_names) >= 2:
@@ -429,7 +528,9 @@ def main():
                 f"The configuration of the model provided the following label correspondence: {label_name_to_id}. "
                 "Using it!"
             )
-            label_to_id = {i: label_name_to_id[label_list[i]] for i in range(num_labels)}
+            label_to_id = {
+                i: label_name_to_id[label_list[i]] for i in range(num_labels)
+            }
         else:
             logger.warning(
                 "Your model seems to have been trained with labels, but they don't match the dataset: ",
@@ -451,9 +552,13 @@ def main():
     def preprocess_function(examples):
         # Tokenize the texts
         texts = (
-            (examples[sentence1_key],) if sentence2_key is None else (examples[sentence1_key], examples[sentence2_key])
+            (examples[sentence1_key],)
+            if sentence2_key is None
+            else (examples[sentence1_key], examples[sentence2_key])
         )
-        result = tokenizer(*texts, padding=padding, max_length=args.max_length, truncation=True)
+        result = tokenizer(
+            *texts, padding=padding, max_length=args.max_length, truncation=True
+        )
 
         if "label" in examples:
             if label_to_id is not None:
@@ -473,7 +578,9 @@ def main():
         )
 
     train_dataset = processed_datasets["train"]
-    eval_dataset = processed_datasets["validation_matched" if args.task_name == "mnli" else "validation"]
+    eval_dataset = processed_datasets[
+        "validation_matched" if args.task_name == "mnli" else "validation"
+    ]
 
     # Log a few random samples from the training set:
     for index in random.sample(range(len(train_dataset)), 3):
@@ -488,31 +595,51 @@ def main():
         # Otherwise, `DataCollatorWithPadding` will apply dynamic padding for us (by padding to the maximum length of
         # the samples passed). When using mixed precision, we add `pad_to_multiple_of=8` to pad all tensors to multiple
         # of 8s, which will enable the use of Tensor Cores on NVIDIA hardware with compute capability >= 7.5 (Volta).
-        data_collator = DataCollatorWithPadding(tokenizer, pad_to_multiple_of=(8 if accelerator.use_fp16 else None))
+        data_collator = DataCollatorWithPadding(
+            tokenizer, pad_to_multiple_of=(8 if accelerator.use_fp16 else None)
+        )
 
     train_dataloader = DataLoader(
-        train_dataset, shuffle=True, collate_fn=data_collator, batch_size=args.per_device_train_batch_size
+        train_dataset,
+        shuffle=True,
+        collate_fn=data_collator,
+        batch_size=args.per_device_train_batch_size,
     )
-    eval_dataloader = DataLoader(eval_dataset, collate_fn=data_collator, batch_size=args.per_device_eval_batch_size)
+    eval_dataloader = DataLoader(
+        eval_dataset,
+        collate_fn=data_collator,
+        batch_size=args.per_device_eval_batch_size,
+    )
 
     # Optimizer
     # Split weights in two groups, one with weight decay and the other not.
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
         {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+            "params": [
+                p
+                for n, p in model.named_parameters()
+                if not any(nd in n for nd in no_decay)
+            ],
             "weight_decay": args.weight_decay,
         },
         {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
+            "params": [
+                p
+                for n, p in model.named_parameters()
+                if any(nd in n for nd in no_decay)
+            ],
             "weight_decay": 0.0,
         },
     ]
-    
+
     if not args.enable_galore:
-        optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=args.learning_rate)
+        optimizer = torch.optim.AdamW(
+            optimizer_grouped_parameters, lr=args.learning_rate
+        )
     else:
         from torch import nn
+
         # label layers for galore optimizer
         # target_modules_list = ["attn", "mlp"]
         # target_modules_list = ["q_proj", "v_proj"]
@@ -524,21 +651,32 @@ def main():
             if not any(target_key in module_name for target_key in target_modules_list):
                 continue
 
-            print('enable GaLore for weights in module: ', module_name)
+            print("enable GaLore for weights in module: ", module_name)
             galore_params.append(module.weight)
 
         id_galore_params = [id(p) for p in galore_params]
         # make parameters without "rank" to another group
-        regular_params = [p for p in model.parameters() if id(p) not in id_galore_params]
+        regular_params = [
+            p for p in model.parameters() if id(p) not in id_galore_params
+        ]
         # then call galore_adamw
-        param_groups = [{'params': regular_params}, 
-                        {'params': galore_params, 'rank': args.lora_r, 'update_proj_gap': args.update_proj_gap, 'scale': args.galore_scale, 'proj_type': args.proj_type}]
+        param_groups = [
+            {"params": regular_params},
+            {
+                "params": galore_params,
+                "rank": args.lora_r,
+                "update_proj_gap": args.update_proj_gap,
+                "scale": args.galore_scale,
+                "proj_type": args.proj_type,
+            },
+        ]
         optimizer = GaLoreAdamW(param_groups, lr=args.learning_rate)
-    
 
     # Scheduler and math around the number of training steps.
     overrode_max_train_steps = False
-    num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
+    num_update_steps_per_epoch = math.ceil(
+        len(train_dataloader) / args.gradient_accumulation_steps
+    )
     if args.max_train_steps is None:
         args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
         overrode_max_train_steps = True
@@ -551,12 +689,16 @@ def main():
     )
 
     # Prepare everything with our `accelerator`.
-    model, optimizer, train_dataloader, eval_dataloader, lr_scheduler = accelerator.prepare(
-        model, optimizer, train_dataloader, eval_dataloader, lr_scheduler
+    model, optimizer, train_dataloader, eval_dataloader, lr_scheduler = (
+        accelerator.prepare(
+            model, optimizer, train_dataloader, eval_dataloader, lr_scheduler
+        )
     )
 
     # We need to recalculate our total training steps as the size of the training dataloader may have changed
-    num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
+    num_update_steps_per_epoch = math.ceil(
+        len(train_dataloader) / args.gradient_accumulation_steps
+    )
     if overrode_max_train_steps:
         args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
     # Afterwards we recalculate our number of training epochs
@@ -572,7 +714,9 @@ def main():
     if args.with_tracking:
         experiment_config = vars(args)
         # TensorBoard cannot log Enums, need the raw value
-        experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"].value
+        experiment_config["lr_scheduler_type"] = experiment_config[
+            "lr_scheduler_type"
+        ].value
         accelerator.init_trackers("glue_no_trainer", experiment_config)
 
     # Get the metric function
@@ -582,17 +726,27 @@ def main():
         metric = evaluate.load("accuracy")
 
     # Train!
-    total_batch_size = args.per_device_train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
+    total_batch_size = (
+        args.per_device_train_batch_size
+        * accelerator.num_processes
+        * args.gradient_accumulation_steps
+    )
 
     logger.info("***** Running training *****")
     logger.info(f"  Num examples = {len(train_dataset)}")
     logger.info(f"  Num Epochs = {args.num_train_epochs}")
-    logger.info(f"  Instantaneous batch size per device = {args.per_device_train_batch_size}")
-    logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
+    logger.info(
+        f"  Instantaneous batch size per device = {args.per_device_train_batch_size}"
+    )
+    logger.info(
+        f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}"
+    )
     logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
     logger.info(f"  Total optimization steps = {args.max_train_steps}")
     # Only show the progress bar once on each machine.
-    progress_bar = tqdm(range(args.max_train_steps), disable=not accelerator.is_local_main_process)
+    progress_bar = tqdm(
+        range(args.max_train_steps), disable=not accelerator.is_local_main_process
+    )
     completed_steps = 0
     starting_epoch = 0
     # Potentially load in the weights and states from a previous save
@@ -604,7 +758,9 @@ def main():
             # Get the most recent checkpoint
             dirs = [f.name for f in os.scandir(os.getcwd()) if f.is_dir()]
             dirs.sort(key=os.path.getctime)
-            path = dirs[-1]  # Sorts folders by date modified, most recent checkpoint is the last
+            path = dirs[
+                -1
+            ]  # Sorts folders by date modified, most recent checkpoint is the last
             checkpoint_path = path
             path = os.path.basename(checkpoint_path)
 
@@ -619,7 +775,10 @@ def main():
             completed_steps = starting_epoch * num_update_steps_per_epoch
         else:
             # need to multiply `gradient_accumulation_steps` to reflect real steps
-            resume_step = int(training_difference.replace("step_", "")) * args.gradient_accumulation_steps
+            resume_step = (
+                int(training_difference.replace("step_", ""))
+                * args.gradient_accumulation_steps
+            )
             starting_epoch = resume_step // len(train_dataloader)
             completed_steps = resume_step // args.gradient_accumulation_steps
             resume_step -= starting_epoch * len(train_dataloader)
@@ -631,9 +790,15 @@ def main():
         model.train()
         if args.with_tracking:
             total_loss = 0
-        if args.resume_from_checkpoint and epoch == starting_epoch and resume_step is not None:
+        if (
+            args.resume_from_checkpoint
+            and epoch == starting_epoch
+            and resume_step is not None
+        ):
             # We skip the first `n` batches in the dataloader when resuming from a checkpoint
-            active_dataloader = accelerator.skip_first_batches(train_dataloader, resume_step)
+            active_dataloader = accelerator.skip_first_batches(
+                train_dataloader, resume_step
+            )
         else:
             active_dataloader = train_dataloader
         for step, batch in enumerate(active_dataloader):
@@ -645,7 +810,10 @@ def main():
                 total_loss += loss.detach().float()
             loss = loss / args.gradient_accumulation_steps
             accelerator.backward(loss)
-            if step % args.gradient_accumulation_steps == 0 or step == len(train_dataloader) - 1:
+            if (
+                step % args.gradient_accumulation_steps == 0
+                or step == len(train_dataloader) - 1
+            ):
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad()
@@ -667,13 +835,21 @@ def main():
         for step, batch in enumerate(eval_dataloader):
             with torch.no_grad():
                 outputs = model(**batch)
-            predictions = outputs.logits.argmax(dim=-1) if not is_regression else outputs.logits.squeeze()
+            predictions = (
+                outputs.logits.argmax(dim=-1)
+                if not is_regression
+                else outputs.logits.squeeze()
+            )
             predictions, references = accelerator.gather((predictions, batch["labels"]))
             # If we are in a multiprocess environment, the last batch has duplicates
             if accelerator.num_processes > 1:
                 if step == len(eval_dataloader) - 1:
-                    predictions = predictions[: len(eval_dataloader.dataset) - samples_seen]
-                    references = references[: len(eval_dataloader.dataset) - samples_seen]
+                    predictions = predictions[
+                        : len(eval_dataloader.dataset) - samples_seen
+                    ]
+                    references = references[
+                        : len(eval_dataloader.dataset) - samples_seen
+                    ]
                 else:
                     samples_seen += references.shape[0]
             metric.add_batch(
@@ -699,12 +875,16 @@ def main():
             accelerator.wait_for_everyone()
             unwrapped_model = accelerator.unwrap_model(model)
             unwrapped_model.save_pretrained(
-                args.output_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save
+                args.output_dir,
+                is_main_process=accelerator.is_main_process,
+                save_function=accelerator.save,
             )
             if accelerator.is_main_process:
                 tokenizer.save_pretrained(args.output_dir)
                 repo.push_to_hub(
-                    commit_message=f"Training in progress epoch {epoch}", blocking=False, auto_lfs_prune=True
+                    commit_message=f"Training in progress epoch {epoch}",
+                    blocking=False,
+                    auto_lfs_prune=True,
                 )
 
         if args.checkpointing_steps == "epoch":
@@ -720,7 +900,9 @@ def main():
         accelerator.wait_for_everyone()
         unwrapped_model = accelerator.unwrap_model(model)
         unwrapped_model.save_pretrained(
-            args.output_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save
+            args.output_dir,
+            is_main_process=accelerator.is_main_process,
+            save_function=accelerator.save,
         )
         if accelerator.is_main_process:
             tokenizer.save_pretrained(args.output_dir)
@@ -731,7 +913,9 @@ def main():
         # Final evaluation on mismatched validation set
         eval_dataset = processed_datasets["validation_mismatched"]
         eval_dataloader = DataLoader(
-            eval_dataset, collate_fn=data_collator, batch_size=args.per_device_eval_batch_size
+            eval_dataset,
+            collate_fn=data_collator,
+            batch_size=args.per_device_eval_batch_size,
         )
         eval_dataloader = accelerator.prepare(eval_dataloader)
 

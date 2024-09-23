@@ -38,7 +38,9 @@ def get_scheculer(
             last_epoch=last_epoch,
         )
     if scheduler_type == "cosine_restarts":
-        assert restart_warmup_steps is not None, "restart_warmup_steps must be specified for cosine_restarts scheduler"
+        assert (
+            restart_warmup_steps is not None
+        ), "restart_warmup_steps must be specified for cosine_restarts scheduler"
         return get_cosine_schedule_with_multiple_warmups(
             optimizer,
             num_training_steps=num_training_steps,
@@ -53,14 +55,25 @@ def get_scheculer(
     raise NotImplementedError(f"Scheduler {scheduler_type} is not implemented")
 
 
-def get_cyclical_cosine_schedule_with_min_lr(optimizer, num_warmup_steps, num_training_steps, cycle_length, min_lr_ratio=0.1, last_epoch=-1):
-    assert cycle_length is not None or num_training_steps is not None, "You must specify either cycle_length or num_training_steps"
-    
+def get_cyclical_cosine_schedule_with_min_lr(
+    optimizer,
+    num_warmup_steps,
+    num_training_steps,
+    cycle_length,
+    min_lr_ratio=0.1,
+    last_epoch=-1,
+):
+    assert (
+        cycle_length is not None or num_training_steps is not None
+    ), "You must specify either cycle_length or num_training_steps"
+
     if cycle_length is None:
         cycle_length = num_training_steps
 
     if num_training_steps % cycle_length != 0:
-        raise ValueError(f"num_training_steps ({num_training_steps}) must be divisible by cycle_length ({cycle_length})")
+        raise ValueError(
+            f"num_training_steps ({num_training_steps}) must be divisible by cycle_length ({cycle_length})"
+        )
 
     lr_lambda = partial(
         _get_cyclical_cosine_schedule_with_min_lr_lambda,
@@ -83,10 +96,14 @@ def get_cosine_schedule_with_multiple_warmups(
     last_epoch=-1,
 ):
     if restart_every is None:
-        raise ValueError("restart_every must be specified for cosine_restarts scheduler")
+        raise ValueError(
+            "restart_every must be specified for cosine_restarts scheduler"
+        )
 
     if num_training_steps % restart_every != 0:
-        raise ValueError(f"num_training_steps ({num_training_steps}) must be divisible by restart_every ({restart_every})")
+        raise ValueError(
+            f"num_training_steps ({num_training_steps}) must be divisible by restart_every ({restart_every})"
+        )
 
     lr_lambda = partial(
         _get_cosine_schedule_with_multiple_warmups_lambda,
@@ -118,14 +135,18 @@ def magnitude_pruning(tensor, prune_ratio):
     Only reduces the inner dimensionality, does not affect the shape of the tensor
     """
     tensor_magnitude = torch.abs(tensor)
-    threshold = torch.quantile(tensor_magnitude.flatten().to(dtype=torch.float32), prune_ratio).to(dtype=tensor.dtype)
+    threshold = torch.quantile(
+        tensor_magnitude.flatten().to(dtype=torch.float32), prune_ratio
+    ).to(dtype=tensor.dtype)
 
     mask = tensor_magnitude > threshold
     tensor = tensor * mask.to(dtype=tensor.dtype)
     return tensor
 
 
-def _get_cyclical_cosine_schedule_with_min_lr_lambda(current_step, *, num_warmup_steps, cycle_length, min_lr_ratio):
+def _get_cyclical_cosine_schedule_with_min_lr_lambda(
+    current_step, *, num_warmup_steps, cycle_length, min_lr_ratio
+):
     assert 0 < min_lr_ratio <= 1.0, "min_lr_ratio must be in (0,1]"
 
     # compute where we are in the current cycle
@@ -137,9 +158,11 @@ def _get_cyclical_cosine_schedule_with_min_lr_lambda(current_step, *, num_warmup
                 return 1e-7
         return float(cycle_step) / float(max(1, num_warmup_steps))
 
-    progress = float(cycle_step - num_warmup_steps) / float(max(1, cycle_length - num_warmup_steps))
+    progress = float(cycle_step - num_warmup_steps) / float(
+        max(1, cycle_length - num_warmup_steps)
+    )
     cosine_decay = 0.5 * (1.0 + math.cos(math.pi * progress))
-    
+
     return min_lr_ratio + (1.0 - min_lr_ratio) * cosine_decay
 
 
@@ -162,8 +185,12 @@ def _get_cosine_schedule_with_multiple_warmups_lambda(
     """
     assert 0 < min_lr_ratio <= 1.0, "min_lr_ratio must be in (0,1]"
     assert restart_every > 0, "restart_every must be positive"
-    assert adjust_step + first_warmup_steps < num_training_steps, "warmup + adjust_step is more than full training steps"
-    assert adjust_step + first_warmup_steps < restart_every, "the first reset will happen before the warmup is done"
+    assert (
+        adjust_step + first_warmup_steps < num_training_steps
+    ), "warmup + adjust_step is more than full training steps"
+    assert (
+        adjust_step + first_warmup_steps < restart_every
+    ), "the first reset will happen before the warmup is done"
 
     if current_step < first_warmup_steps:
         return float(current_step) / float(max(1, first_warmup_steps))
@@ -175,17 +202,22 @@ def _get_cosine_schedule_with_multiple_warmups_lambda(
 
     if restart_step < restart_warmup_steps:
         # get expected lr multipler at the end of the warmup
-        end_of_warmup_progress = (
-            float(restart_number * restart_every) /
-            float(max(1, num_training_steps - first_warmup_steps))
+        end_of_warmup_progress = float(restart_number * restart_every) / float(
+            max(1, num_training_steps - first_warmup_steps)
         )
 
         _cosine_decay = 0.5 * (1.0 + math.cos(math.pi * end_of_warmup_progress))
         warmup_lr_multiplier = min_lr_ratio + (1.0 - min_lr_ratio) * _cosine_decay
-    
-        return float(restart_step) / float(max(1, restart_warmup_steps)) * warmup_lr_multiplier
 
-    progress = float(_current_step - first_warmup_steps) / float(max(1, num_training_steps - first_warmup_steps))
+        return (
+            float(restart_step)
+            / float(max(1, restart_warmup_steps))
+            * warmup_lr_multiplier
+        )
+
+    progress = float(_current_step - first_warmup_steps) / float(
+        max(1, num_training_steps - first_warmup_steps)
+    )
     cosine_decay = 0.5 * (1.0 + math.cos(math.pi * progress))
 
     return min_lr_ratio + (1.0 - min_lr_ratio) * cosine_decay
@@ -193,8 +225,12 @@ def _get_cosine_schedule_with_multiple_warmups_lambda(
 
 def collate_fn(batch_list):
     batch = {
-        "input_ids": torch.stack([torch.Tensor(example["input_ids"]).long() for example in batch_list]),
-        "attention_mask": torch.stack([torch.Tensor(example["attention_mask"]).long() for example in batch_list]),
+        "input_ids": torch.stack(
+            [torch.Tensor(example["input_ids"]).long() for example in batch_list]
+        ),
+        "attention_mask": torch.stack(
+            [torch.Tensor(example["attention_mask"]).long() for example in batch_list]
+        ),
     }
     return batch
 

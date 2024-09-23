@@ -112,7 +112,9 @@ class Adafactor(Optimizer):
     ):
         require_version("torch>=1.5.0")  # add_ with alpha
         if lr is not None and relative_step:
-            raise ValueError("Cannot combine manual `lr` and `relative_step=True` options")
+            raise ValueError(
+                "Cannot combine manual `lr` and `relative_step=True` options"
+            )
         if warmup_init and not relative_step:
             raise ValueError("`warmup_init=True` requires `relative_step=True`")
 
@@ -133,7 +135,9 @@ class Adafactor(Optimizer):
     def _get_lr(param_group, param_state):
         rel_step_sz = param_group["lr"]
         if param_group["relative_step"]:
-            min_step = 1e-6 * param_state["step"] if param_group["warmup_init"] else 1e-2
+            min_step = (
+                1e-6 * param_state["step"] if param_group["warmup_init"] else 1e-2
+            )
             rel_step_sz = min(min_step, 1.0 / math.sqrt(param_state["step"]))
         param_scale = 1.0
         if param_group["scale_parameter"]:
@@ -154,7 +158,11 @@ class Adafactor(Optimizer):
     def _approx_sq_grad(exp_avg_sq_row, exp_avg_sq_col):
         # copy from fairseq's adafactor implementation:
         # https://github.com/huggingface/transformers/blob/8395f14de6068012787d83989c3627c3df6a252b/src/transformers/optimization.py#L505
-        r_factor = (exp_avg_sq_row / exp_avg_sq_row.mean(dim=-1, keepdim=True)).rsqrt_().unsqueeze(-1)
+        r_factor = (
+            (exp_avg_sq_row / exp_avg_sq_row.mean(dim=-1, keepdim=True))
+            .rsqrt_()
+            .unsqueeze(-1)
+        )
         c_factor = exp_avg_sq_col.unsqueeze(-2).rsqrt()
         return torch.mul(r_factor, c_factor)
 
@@ -182,21 +190,31 @@ class Adafactor(Optimizer):
                     raise RuntimeError("Adafactor does not support sparse gradients.")
 
                 state = self.state[p]
-                
+
                 if "step" not in state:
                     state["step"] = 0
 
-                if 'dim' not in group:
-                    group['dim'] = 2
-                        
+                if "dim" not in group:
+                    group["dim"] = 2
+
                 # GaLore Projection
                 if "rank" in group:
                     if "projector" not in state:
-                        if group['dim'] <=2:
-                            state["projector"] = GaLoreProjector(group["rank"], update_proj_gap=group["update_proj_gap"], scale=group["scale"], proj_type=group["proj_type"])
+                        if group["dim"] <= 2:
+                            state["projector"] = GaLoreProjector(
+                                group["rank"],
+                                update_proj_gap=group["update_proj_gap"],
+                                scale=group["scale"],
+                                proj_type=group["proj_type"],
+                            )
                         else:
-                            state["projector"] = GaLoreProjectorTensor(group["rank"], update_proj_gap=group["update_proj_gap"], scale=group["scale"], proj_type=group["proj_type"])
-                    
+                            state["projector"] = GaLoreProjectorTensor(
+                                group["rank"],
+                                update_proj_gap=group["update_proj_gap"],
+                                scale=group["scale"],
+                                proj_type=group["proj_type"],
+                            )
+
                     grad = state["projector"].project(grad, state["step"])
 
                 grad_shape = grad.shape
@@ -211,7 +229,9 @@ class Adafactor(Optimizer):
                         state["exp_avg"] = torch.zeros_like(grad)
                     if factored:
                         state["exp_avg_sq_row"] = torch.zeros(grad_shape[:-1]).to(grad)
-                        state["exp_avg_sq_col"] = torch.zeros(grad_shape[:-2] + grad_shape[-1:]).to(grad)
+                        state["exp_avg_sq_col"] = torch.zeros(
+                            grad_shape[:-2] + grad_shape[-1:]
+                        ).to(grad)
                     else:
                         state["exp_avg_sq"] = torch.zeros_like(grad)
 
@@ -239,8 +259,12 @@ class Adafactor(Optimizer):
                     exp_avg_sq_row = state["exp_avg_sq_row"]
                     exp_avg_sq_col = state["exp_avg_sq_col"]
 
-                    exp_avg_sq_row.mul_(beta2t).add_(update.mean(dim=-1), alpha=(1.0 - beta2t))
-                    exp_avg_sq_col.mul_(beta2t).add_(update.mean(dim=-2), alpha=(1.0 - beta2t))
+                    exp_avg_sq_row.mul_(beta2t).add_(
+                        update.mean(dim=-1), alpha=(1.0 - beta2t)
+                    )
+                    exp_avg_sq_col.mul_(beta2t).add_(
+                        update.mean(dim=-2), alpha=(1.0 - beta2t)
+                    )
 
                     # Approximation of exponential moving average of square of gradient
                     update = self._approx_sq_grad(exp_avg_sq_row, exp_avg_sq_col)
@@ -251,18 +275,22 @@ class Adafactor(Optimizer):
                     exp_avg_sq.mul_(beta2t).add_(update, alpha=(1.0 - beta2t))
                     update = exp_avg_sq.rsqrt().mul_(grad)
 
-                update.div_((self._rms(update) / group["clip_threshold"]).clamp_(min=1.0))
+                update.div_(
+                    (self._rms(update) / group["clip_threshold"]).clamp_(min=1.0)
+                )
                 update.mul_(lr)
 
                 if use_first_moment:
                     exp_avg = state["exp_avg"]
-                    exp_avg.mul_(group["beta1"]).add_(update, alpha=(1 - group["beta1"]))
+                    exp_avg.mul_(group["beta1"]).add_(
+                        update, alpha=(1 - group["beta1"])
+                    )
                     update = exp_avg
-                
+
                 # GaLore Projection Back
                 if "rank" in group:
                     update = state["projector"].project_back(update)
-    
+
                 if group["weight_decay"] != 0:
                     p_data_fp32.add_(p_data_fp32, alpha=(-group["weight_decay"] * lr))
 

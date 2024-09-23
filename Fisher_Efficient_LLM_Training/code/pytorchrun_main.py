@@ -115,7 +115,7 @@ class C4DataModule(pl.LightningDataModule):
 
     def setup(self, stage=None):
         # Set process rank and world size
-        if hasattr(self.trainer, 'global_rank'):
+        if hasattr(self.trainer, "global_rank"):
             self.process_rank = self.trainer.global_rank
             self.world_size = self.trainer.world_size
         else:
@@ -395,8 +395,7 @@ def main(args):
             ), "gradient_accumulation must be greater than 0"
 
     assert (
-        args.gradient_accumulation * args.batch_size * num_gpus
-        == args.total_batch_size
+        args.gradient_accumulation * args.batch_size * num_gpus == args.total_batch_size
     ), "gradient_accumulation * batch_size * num_gpus must be equal to total_batch_size"
 
     tokenizer = AutoTokenizer.from_pretrained(
@@ -418,7 +417,9 @@ def main(args):
     checkpoint_callback = ModelCheckpoint(
         dirpath=args.save_dir,
         every_n_train_steps=args.save_every,
-        save_top_k=-1,
+        save_top_k=1,
+        monitor="val_loss",
+        mode="min",
     )
     lr_monitor = LearningRateMonitor(logging_interval="step")
     custom_checkpoint = CustomCheckpointCallback()

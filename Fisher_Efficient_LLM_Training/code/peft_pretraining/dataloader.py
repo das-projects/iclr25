@@ -5,7 +5,9 @@ from torch.utils.data import IterableDataset, get_worker_info
 
 
 class PreprocessedIterableDataset(IterableDataset):
-    def __init__(self, data, tokenizer, batch_size, max_length, process_rank=0, world_size=1):
+    def __init__(
+        self, data, tokenizer, batch_size, max_length, process_rank=0, world_size=1
+    ):
         super().__init__()
         self.data = data
         self.tokenizer = tokenizer
@@ -48,6 +50,8 @@ class PreprocessedIterableDataset(IterableDataset):
 
     def _format_batch(self, batch):
         input_ids = torch.stack([item["input_ids"].squeeze(0) for item in batch])
-        attention_mask = torch.stack([item["attention_mask"].squeeze(0) for item in batch])
+        attention_mask = torch.stack(
+            [item["attention_mask"].squeeze(0) for item in batch]
+        )
 
         return {"input_ids": input_ids, "attention_mask": attention_mask}

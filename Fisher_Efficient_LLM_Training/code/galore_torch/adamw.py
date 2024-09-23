@@ -58,12 +58,22 @@ class AdamW(Optimizer):
         if lr < 0.0:
             raise ValueError(f"Invalid learning rate: {lr} - should be >= 0.0")
         if not 0.0 <= betas[0] < 1.0:
-            raise ValueError(f"Invalid beta parameter: {betas[0]} - should be in [0.0, 1.0)")
+            raise ValueError(
+                f"Invalid beta parameter: {betas[0]} - should be in [0.0, 1.0)"
+            )
         if not 0.0 <= betas[1] < 1.0:
-            raise ValueError(f"Invalid beta parameter: {betas[1]} - should be in [0.0, 1.0)")
+            raise ValueError(
+                f"Invalid beta parameter: {betas[1]} - should be in [0.0, 1.0)"
+            )
         if not 0.0 <= eps:
             raise ValueError(f"Invalid epsilon value: {eps} - should be >= 0.0")
-        defaults = {"lr": lr, "betas": betas, "eps": eps, "weight_decay": weight_decay, "correct_bias": correct_bias}
+        defaults = {
+            "lr": lr,
+            "betas": betas,
+            "eps": eps,
+            "weight_decay": weight_decay,
+            "correct_bias": correct_bias,
+        }
         super().__init__(params, defaults)
         self.projection_type_random = projection_type_random
 
@@ -85,26 +95,43 @@ class AdamW(Optimizer):
                     continue
                 grad = p.grad
                 if grad.is_sparse:
-                    raise RuntimeError("Adam does not support sparse gradients, please consider SparseAdam instead")
+                    raise RuntimeError(
+                        "Adam does not support sparse gradients, please consider SparseAdam instead"
+                    )
 
                 state = self.state[p]
-                
+
                 if "step" not in state:
                     state["step"] = 0
-                
-                if 'dim' not in group:
-                    group['dim'] = 2
-                    
+
+                if "dim" not in group:
+                    group["dim"] = 2
+
                 # GaLore Projection
                 if "rank" in group:
                     if "projector" not in state:
                         if not self.projection_type_random:
-                            if group['dim'] <=2:
-                                state["projector"] = GaLoreProjector(group["rank"], update_proj_gap=group["update_proj_gap"], scale=group["scale"], proj_type=group["proj_type"])
+                            if group["dim"] <= 2:
+                                state["projector"] = GaLoreProjector(
+                                    group["rank"],
+                                    update_proj_gap=group["update_proj_gap"],
+                                    scale=group["scale"],
+                                    proj_type=group["proj_type"],
+                                )
                             else:
-                                state["projector"] = GaLoreProjectorTensor(group["rank"], update_proj_gap=group["update_proj_gap"], scale=group["scale"], proj_type=group["proj_type"])
+                                state["projector"] = GaLoreProjectorTensor(
+                                    group["rank"],
+                                    update_proj_gap=group["update_proj_gap"],
+                                    scale=group["scale"],
+                                    proj_type=group["proj_type"],
+                                )
                         else:
-                            state["projector"] = RandomProjector(rank=group["rank"], update_proj_gap=group["update_proj_gap"], scale=group["scale"], proj_type=group["proj_type"])
+                            state["projector"] = RandomProjector(
+                                rank=group["rank"],
+                                update_proj_gap=group["update_proj_gap"],
+                                scale=group["scale"],
+                                proj_type=group["proj_type"],
+                            )
                     grad = state["projector"].project(grad, state["step"])
 
                 # State initialization
@@ -129,15 +156,17 @@ class AdamW(Optimizer):
                 if group["correct_bias"]:  # No bias correction for Bert
                     bias_correction1 = 1.0 - beta1 ** state["step"]
                     bias_correction2 = 1.0 - beta2 ** state["step"]
-                    step_size = step_size * math.sqrt(bias_correction2) / bias_correction1
+                    step_size = (
+                        step_size * math.sqrt(bias_correction2) / bias_correction1
+                    )
 
                 # compute norm gradient
                 norm_grad = exp_avg / denom
-                
+
                 # GaLore Projection Back
                 if "rank" in group:
                     norm_grad = state["projector"].project_back(norm_grad)
-                
+
                 p.add_(norm_grad, alpha=-step_size)
 
                 # Just adding the square of the weights to the loss function is *not*

@@ -1,6 +1,7 @@
 import torch
 from tensorly.decomposition import tucker
-from tensorly import tenalg 
+from tensorly import tenalg
+
 
 # The GaLoreProjector class in Python implements a projection method using orthogonal matrix
 # decomposition for low-rank approximation of gradients for general tensors of dimension >2.
@@ -23,7 +24,7 @@ class GaLoreProjectorTensor:
         self.scale = scale
         self.ortho_matrix = None
         self.transformed_low_rank = None
-        
+
     def project(self, full_rank_grad, iter):
         """
         Projects the full-rank gradients onto the low-rank subspace.
@@ -36,7 +37,7 @@ class GaLoreProjectorTensor:
             torch.Tensor: The transformed low-rank gradients.
         """
         if self.ortho_matrix is None and iter % self.update_proj_gap == 0:
-            self.ortho_matrix = self.get_orthogonal_matrix(full_rank_grad, self.rank)    
+            self.ortho_matrix = self.get_orthogonal_matrix(full_rank_grad, self.rank)
         self.transformed_low_rank = self.transform(self.ortho_matrix, full_rank_grad)
         return self.transformed_low_rank
 
@@ -50,9 +51,11 @@ class GaLoreProjectorTensor:
         Returns:
             torch.Tensor: The full-rank gradients.
         """
-        full_rank_grad = self.inverse_transform(self.ortho_matrix, self.transformed_low_rank)     
+        full_rank_grad = self.inverse_transform(
+            self.ortho_matrix, self.transformed_low_rank
+        )
         return full_rank_grad * self.scale
-        
+
     # svd decomposition
     def get_orthogonal_matrix(self, weights, rank_all):
         """
