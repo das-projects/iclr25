@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple, Union, Iterable, Callable
 from .galore_projector_tensor import GaLoreProjectorTensor
 
 
-class SubspaceAdamW(Optimizer):
+class SubSpaceAdamW(Optimizer):
     def __init__(
         self,
         params: Union[Iterable[nn.parameter.Parameter], Iterable[dict]],

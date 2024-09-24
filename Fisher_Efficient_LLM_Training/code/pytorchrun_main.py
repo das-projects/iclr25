@@ -15,7 +15,7 @@ from peft_pretraining import training_utils, args_utils
 from peft_pretraining.dataloader import PreprocessedIterableDataset
 from peft_pretraining.modeling_llama import LlamaForCausalLM
 
-from galore_torch import SubspaceAdamW
+from galore_torch.adamw import SubSpaceAdamW
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
@@ -80,8 +80,6 @@ def parse_args(args):
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--name", type=str, default="test")
     parser.add_argument("--grad_clipping", type=float, default=0.0)
-    # beta1 for adafactor
-    parser.add_argument("--beta1", type=float, default=0.0)
 
     # GaLore parameters
     parser.add_argument("--rank", type=int, default=128)
@@ -294,7 +292,7 @@ class LlamaLightningModule(pl.LightningModule):
         optimizer = None
 
         if "galore" in args.optimizer.lower():
-            optimizer = SubspaceAdamW(
+            optimizer = SubSpaceAdamW(
                 param_groups,
                 lr=args.lr,
                 weight_decay=args.weight_decay,
