@@ -309,31 +309,6 @@ The proposed online natural gradient algorithm efficiently approximates the natu
 
 \section{Model}
 
-\begin{tikzpicture}[node distance=2cm and 3cm]
-
-   % Nodes
-   \node (start) [startstop] {Document Image};
-   \node (heira) [process, below of=start] {Heira Embedding};
-   \node (imgdecode) [process, below of=heira] {Image Decoder};
-   \node (llm) [process, below of=imgdecode ] {LLM};
-   \node (promptimg) [process, left of=llm] {Prompt};
-   \node (ocr) [process, below of=llm, xshift=-2cm, yshift=-1cm] {OCR};
-   \node (qa) [process, below of=llm, xshift=2cm, yshift=-1cm] {Question and Answer};
-   \node (layout) [process, below of=llm, xshift=6cm, yshift=-1cm] {Layout Detection};
-   \node (ner) [process, below of=llm, xshift=10cm, yshift=-1cm] {Named Entity Recognition};
-
-   % Arrows
-   \draw [arrow] (start) -- (heira);
-   \draw [arrow] (heira) -- (imgdecode);
-   \draw [arrow] (imgdecode) -- (llm);
-   \draw [arrow] (promptimg) -- (llm);
-   \draw [arrow] (llm) -- (ocr);
-   \draw [arrow] (llm) -- (qa);
-   \draw [arrow] (llm) -- (layout);
-   \draw [arrow] (llm) -- (ner);
-
-   \end{tikzpicture}
-
 \subsection{Image Encoder}
 The Hiera model is a novel hierarchical vision transformer designed with a focus on simplicity and efficiency for computer vision tasks. It emerges as a response to the increasing complexity of existing hierarchical vision transformers, such as MViTv2. The Hiera architecture retains the essential components of the ViT framework while eliminating non-essential features that do not contribute to its overall performance, thereby achieving faster operation and competitive accuracy.
 
