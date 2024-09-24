@@ -4,7 +4,9 @@ from tensorly import tenalg
 
 # Ensure tensorly uses PyTorch as the backend
 import tensorly as tl
-tl.set_backend('pytorch')
+
+tl.set_backend("pytorch")
+
 
 # The GaLoreProjector class in Python implements a projection method using orthogonal matrix
 # decomposition for low-rank approximation of gradients for general tensors.
@@ -20,7 +22,7 @@ class GaLoreProjectorTensor:
         proj_type (str, optional): Type of projection ('std' or 'continuous'). Defaults to 'std'.
     """
 
-    def __init__(self, rank, update_proj_gap=200, scale=1.0, proj_type='std'):
+    def __init__(self, rank, update_proj_gap=200, scale=1.0, proj_type="std"):
         self.rank = rank
         self.update_proj_gap = update_proj_gap
         self.scale = scale
@@ -42,24 +44,32 @@ class GaLoreProjectorTensor:
         Returns:
             torch.Tensor: The transformed low-rank gradients.
         """
-        if self.proj_type == 'std':
+        if self.proj_type == "std":
             if self.core is None or iter % self.update_proj_gap == 0:
-                self.core, self.factors = self.get_orthogonal_matrix(full_rank_grad, self.rank)
+                self.core, self.factors = self.get_orthogonal_matrix(
+                    full_rank_grad, self.rank
+                )
             self.transformed_low_rank = self.transform(self.factors, full_rank_grad)
-        elif 'continuous' in self.proj_type:
+        elif "continuous" in self.proj_type:
             if self.core is None:
-                self.core, self.factors = self.get_orthogonal_matrix(full_rank_grad, self.rank)
+                self.core, self.factors = self.get_orthogonal_matrix(
+                    full_rank_grad, self.rank
+                )
                 # Initialize optimizers for factors
                 self.optimizers = []
                 for factor in self.factors:
                     factor.requires_grad = True
-                    optimizer = torch.optim.AdamW([factor], lr=1.0 / self.update_proj_gap)
+                    optimizer = torch.optim.AdamW(
+                        [factor], lr=1.0 / self.update_proj_gap
+                    )
                     self.optimizers.append(optimizer)
             else:
                 self._update_factors(full_rank_grad, lr_ratio)
             self.transformed_low_rank = self.transform(self.factors, full_rank_grad)
         else:
-            raise NotImplementedError(f"Projection type '{self.proj_type}' is not implemented.")
+            raise NotImplementedError(
+                f"Projection type '{self.proj_type}' is not implemented."
+            )
         return self.transformed_low_rank
 
     def project_back(self, low_rank_grad):
@@ -73,7 +83,7 @@ class GaLoreProjectorTensor:
             torch.Tensor: The full-rank gradients.
         """
         full_rank_grad = self.inverse_transform(self.factors, self.transformed_low_rank)
-        if 'continuous' in self.proj_type:
+        if "continuous" in self.proj_type:
             # Update factors after projection back
             for optimizer in self.optimizers:
                 optimizer.step()
@@ -97,7 +107,9 @@ class GaLoreProjectorTensor:
             optimizer.zero_grad()
 
         # Compute loss for updating factors
-        approx_grad = self.inverse_transform(self.factors, self.transform(self.factors, full_rank_grad))
+        approx_grad = self.inverse_transform(
+            self.factors, self.transform(self.factors, full_rank_grad)
+        )
         loss = torch.norm(full_rank_grad - approx_grad) ** 2
 
         # Backpropagate
@@ -106,7 +118,7 @@ class GaLoreProjectorTensor:
         # Update learning rates based on lr_ratio
         for optimizer in self.optimizers:
             for group in optimizer.param_groups:
-                group['lr'] = (1.0 / self.update_proj_gap) * lr_ratio
+                group["lr"] = (1.0 / self.update_proj_gap) * lr_ratio
 
         # Note: Optimizer steps are taken in project_back after projection
 
@@ -133,7 +145,9 @@ class GaLoreProjectorTensor:
         elif isinstance(rank, (list, tuple)):
             # Ensure that the length of rank matches the number of dimensions
             if len(rank) != weights.ndim:
-                raise ValueError(f"Rank tuple length {len(rank)} does not match tensor dimensions {weights.ndim}.")
+                raise ValueError(
+                    f"Rank tuple length {len(rank)} does not match tensor dimensions {weights.ndim}."
+                )
             ranks = rank
         else:
             raise ValueError("Rank must be an integer or a tuple/list of integers.")
@@ -145,7 +159,6 @@ class GaLoreProjectorTensor:
         factors = [factor.to(dtype=original_dtype) for factor in factors]
 
         return core, factors
-
 
     def transform(self, factors, x):
         """

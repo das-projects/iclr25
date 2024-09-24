@@ -4,6 +4,7 @@ from torch.optim.optimizer import Optimizer
 from typing import List, Optional, Tuple, Union, Iterable, Callable
 from .galore_projector_tensor import GaLoreProjectorTensor
 
+
 class AdamW(Optimizer):
     def __init__(
         self,
@@ -20,7 +21,7 @@ class AdamW(Optimizer):
         rank: Optional[int] = None,
         update_proj_gap: int = 200,
         scale: float = 1.0,
-        proj_type: str = 'std',
+        proj_type: str = "std",
     ):
         if not 0.0 <= lr:
             raise ValueError(f"Invalid learning rate: {lr}")
@@ -97,9 +98,11 @@ class AdamW(Optimizer):
 
                 # Initialize state step
                 if "step" not in state:
-                    state["step"] = torch.zeros(
-                        (), dtype=torch.float32, device=p.device
-                    ) if group["capturable"] else torch.tensor(0.0)
+                    state["step"] = (
+                        torch.zeros((), dtype=torch.float32, device=p.device)
+                        if group["capturable"]
+                        else torch.tensor(0.0)
+                    )
 
                 # GaLore Projection
                 if group["rank"] is not None:
@@ -221,11 +224,11 @@ def adamw(
 
         # Compute step size
         step = step_t.item()
-        bias_correction1 = 1.0 - beta1 ** step
-        bias_correction2 = 1.0 - beta2 ** step
+        bias_correction1 = 1.0 - beta1**step
+        bias_correction2 = 1.0 - beta2**step
 
         step_size = lr / bias_correction1
-        bias_correction2_sqrt = bias_correction2 ** 0.5
+        bias_correction2_sqrt = bias_correction2**0.5
         denom = (exp_avg_sq.sqrt() / bias_correction2_sqrt).add_(eps)
 
         # Compute normalized gradient
@@ -248,4 +251,4 @@ def adamw(
         # of the weights to the loss with plain (non-momentum) SGD.
         # Add weight decay at the end (fixed version)
         if weight_decay > 0.0:
-            param.add_(param, alpha=(- lr * weight_decay))
+            param.add_(param, alpha=(-lr * weight_decay))
