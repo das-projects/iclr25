@@ -15,8 +15,7 @@ from peft_pretraining import training_utils, args_utils
 from peft_pretraining.dataloader import PreprocessedIterableDataset
 from peft_pretraining.modeling_llama import LlamaForCausalLM
 
-import bitsandbytes as bnb
-from galore_torch import GaLoreAdamW, GaLoreAdamW8bit, GaLoreAdafactor
+from galore_torch import SubspaceAdamW
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
@@ -37,13 +36,12 @@ def parse_args(args):
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--model_config", type=str, required=True)
-    parser.add_argument("--use_hf_model", default=False, action="store_true")
     parser.add_argument("--continue_from", type=str, default=None)
     parser.add_argument("--batch_size", type=int, required=True)
     parser.add_argument("--gradient_accumulation", type=int, default=None)
     parser.add_argument("--total_batch_size", type=int, default=None)
     parser.add_argument("--max_length", type=int, default=256)
-    parser.add_argument("--optimizer", default="Adam")
+    parser.add_argument("--optimizer", default="galore_adamw", type=str)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument(
         "--scheduler",
@@ -89,7 +87,6 @@ def parse_args(args):
     parser.add_argument("--rank", type=int, default=128)
     parser.add_argument("--update_proj_gap", type=int, default=50)
     parser.add_argument("--galore_scale", type=float, default=1.0)
-    parser.add_argument("--proj_type", type=str, default="std")
 
     # disable ddp, single_gpu
     parser.add_argument("--single_gpu", default=True, action="store_true")
@@ -249,7 +246,11 @@ class LlamaLightningModule(pl.LightningModule):
 
     def configure_optimizers(self):
         args = self.args
-
+        proj_types = {
+            "galore_adamw": "galore",
+            "online_galore_adamw": "online_galore",
+            "online_natural_galore_adamw": "online_natural_galore",
+        }
         # Create parameter groups
         if "galore" in args.optimizer.lower():
             galore_params, regular_params = self.get_galore_params()
@@ -260,7 +261,7 @@ class LlamaLightningModule(pl.LightningModule):
                     "rank": args.rank,
                     "update_proj_gap": args.update_proj_gap,
                     "scale": args.galore_scale,
-                    "proj_type": args.proj_type,
+                    "proj_type": proj_types[args.optimizer.lower()],
                 },
             ]
         else:
@@ -291,60 +292,19 @@ class LlamaLightningModule(pl.LightningModule):
     def create_optimizer(self, param_groups):
         args = self.args
         optimizer = None
-        optimizer_name = args.optimizer.lower()
-        trainable_params = [p for p in self.model.parameters() if p.requires_grad]
 
-        if optimizer_name == "adam":
-            optimizer = torch.optim.Adam(
-                param_groups, lr=args.lr, weight_decay=args.weight_decay
-            )
-        elif optimizer_name == "galore_adamw":
-            optimizer = GaLoreAdamW(
-                param_groups, lr=args.lr, weight_decay=args.weight_decay
-            )
-        elif args.optimizer.lower() == "sgd":
-            optimizer = torch.optim.SGD(
-                trainable_params,
-                lr=args.lr,
-                weight_decay=args.weight_decay,
-                momentum=args.beta1,
-            )
-        elif args.optimizer.lower() == "adafactor":
-            args.beta1 = None if args.beta1 == 0.0 else args.beta1
-            optimizer = transformers.optimization.Adafactor(
-                trainable_params,
-                lr=args.lr,
-                eps=(1e-30, 1e-3),
-                clip_threshold=1.0,
-                decay_rate=-0.8,
-                beta1=args.beta1,
-                weight_decay=args.weight_decay,
-                relative_step=False,
-                scale_parameter=False,
-                warmup_init=False,
-            )
-        elif args.optimizer.lower() == "galore_adafactor":
-            args.beta1 = None if args.beta1 == 0.0 else args.beta1
-            optimizer = GaLoreAdafactor(
+        if "galore" in args.optimizer.lower():
+            optimizer = SubspaceAdamW(
                 param_groups,
                 lr=args.lr,
-                eps=(1e-30, 1e-3),
-                clip_threshold=1.0,
-                decay_rate=-0.8,
-                beta1=args.beta1,
                 weight_decay=args.weight_decay,
-                relative_step=False,
-                scale_parameter=False,
-                warmup_init=False,
             )
-        elif args.optimizer.lower() == "adam8bit":
-            optimizer = bnb.optim.Adam8bit(
-                trainable_params, lr=args.lr, weight_decay=args.weight_decay
-            )
-        elif args.optimizer.lower() == "galore_adamw8bit":
-            optimizer = GaLoreAdamW8bit(
-                param_groups, lr=args.lr, weight_decay=args.weight_decay
-            )
+        elif "adamw" == args.optimizer.lower():
+            optimizer = torch.optim.AdamW(
+                param_groups,
+                lr=args.lr,
+                weight_decay=args.weight_decay,
+                )
         else:
             raise ValueError(f"Optimizer {args.optimizer} not supported")
         return optimizer

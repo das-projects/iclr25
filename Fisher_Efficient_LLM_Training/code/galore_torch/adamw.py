@@ -5,23 +5,19 @@ from typing import List, Optional, Tuple, Union, Iterable, Callable
 from .galore_projector_tensor import GaLoreProjectorTensor
 
 
-class AdamW(Optimizer):
+class SubspaceAdamW(Optimizer):
     def __init__(
         self,
         params: Union[Iterable[nn.parameter.Parameter], Iterable[dict]],
         lr: float = 1e-3,
         betas: Tuple[float, float] = (0.9, 0.999),
-        eps: float = 1e-8,
+        eps: float = 1e-6,
         weight_decay: float = 1e-2,
         amsgrad: bool = False,
         *,
         maximize: bool = False,
         capturable: bool = False,
         differentiable: bool = False,
-        rank: Optional[int] = None,
-        update_proj_gap: int = 200,
-        scale: float = 1.0,
-        proj_type: str = "std",
     ):
         if not 0.0 <= lr:
             raise ValueError(f"Invalid learning rate: {lr}")
@@ -43,10 +39,6 @@ class AdamW(Optimizer):
             maximize=maximize,
             capturable=capturable,
             differentiable=differentiable,
-            rank=rank,
-            update_proj_gap=update_proj_gap,
-            scale=scale,
-            proj_type=proj_type,
         )
         super().__init__(params, defaults)
         self.init_lr = lr

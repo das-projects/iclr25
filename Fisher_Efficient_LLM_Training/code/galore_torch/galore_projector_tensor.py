@@ -22,7 +22,7 @@ class GaLoreProjectorTensor:
         proj_type (str, optional): Type of projection ('std' or 'continuous'). Defaults to 'std'.
     """
 
-    def __init__(self, rank, update_proj_gap=200, scale=1.0, proj_type="std"):
+    def __init__(self, rank, update_proj_gap=200, scale=1.0, proj_type="galore"):
         self.rank = rank
         self.update_proj_gap = update_proj_gap
         self.scale = scale
@@ -44,33 +44,61 @@ class GaLoreProjectorTensor:
         Returns:
             torch.Tensor: The transformed low-rank gradients.
         """
-        if self.proj_type == "std":
-            if self.core is None or iter % self.update_proj_gap == 0:
-                self.core, self.factors = self.get_orthogonal_matrix(
-                    full_rank_grad, self.rank
-                )
-            self.transformed_low_rank = self.transform(self.factors, full_rank_grad)
-        elif "continuous" in self.proj_type:
-            if self.core is None:
-                self.core, self.factors = self.get_orthogonal_matrix(
-                    full_rank_grad, self.rank
-                )
-                # Initialize optimizers for factors
-                self.optimizers = []
-                for factor in self.factors:
-                    factor.requires_grad = True
-                    optimizer = torch.optim.AdamW(
-                        [factor], lr=1.0 / self.update_proj_gap
+        match self.proj_type:
+            case "galore":
+                if self.core is None or iter % self.update_proj_gap == 0:
+                    self.core, self.factors = self.get_orthogonal_matrix(
+                        full_rank_grad, self.rank
                     )
-                    self.optimizers.append(optimizer)
-            else:
-                self._update_factors(full_rank_grad, lr_ratio)
-            self.transformed_low_rank = self.transform(self.factors, full_rank_grad)
-        else:
-            raise NotImplementedError(
-                f"Projection type '{self.proj_type}' is not implemented."
-            )
+                self.transformed_low_rank = self.transform(self.factors, full_rank_grad)
+            case "online_galore":
+                self.transformed_low_rank = self._project_online_galore(full_rank_grad, lr_ratio)
+            case "online_natural_galore":
+                self.transformed_low_rank = self._project_online_galore(full_rank_grad, lr_ratio)
+                self.transformed_low_rank = self.natural_gradient_transform(self.transformed_low_rank)
+            case _:
+                raise NotImplementedError(
+                    f"Projection type '{self.proj_type}' is not implemented."
+                )
         return self.transformed_low_rank
+
+    def _project_online_galore(self, full_rank_grad, lr_ratio):
+        """
+        Projects the full-rank gradients onto the low-rank subspace using online GaLore.
+
+        Args:
+            full_rank_grad (torch.Tensor): The full-rank gradients.
+            lr_ratio (float): Ratio of current learning rate to initial learning rate.
+
+        Returns:
+            torch.Tensor: The transformed low-rank gradients.
+        """
+        if self.core is None:
+            self.core, self.factors = self.get_orthogonal_matrix(
+                full_rank_grad, self.rank
+            )
+            # Initialize optimizers for factors
+            self.optimizers = []
+            for factor in self.factors:
+                factor.requires_grad = True
+                optimizer = torch.optim.AdamW([factor], lr=1.0 / self.update_proj_gap)
+                self.optimizers.append(optimizer)
+        else:
+            self._update_factors(full_rank_grad, lr_ratio)
+        return self.transform(self.factors, full_rank_grad)
+
+    def natural_gradient_transform(self, low_rank_grad):
+        """
+        Transforms the low-rank gradients using the natural gradient.
+
+        Args:
+            low_rank_grad (torch.Tensor): The low-rank gradients.
+
+        Returns:
+            torch.Tensor: The transformed low-rank gradients.
+        """
+        # Compute the natural gradient
+        pass
 
     def project_back(self, low_rank_grad):
         """
@@ -83,7 +111,7 @@ class GaLoreProjectorTensor:
             torch.Tensor: The full-rank gradients.
         """
         full_rank_grad = self.inverse_transform(self.factors, self.transformed_low_rank)
-        if "continuous" in self.proj_type:
+        if "galore" != self.proj_type:
             # Update factors after projection back
             for optimizer in self.optimizers:
                 optimizer.step()
