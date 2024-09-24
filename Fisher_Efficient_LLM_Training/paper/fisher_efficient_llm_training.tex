@@ -53,6 +53,262 @@ Multimodal promptable foundational model for document question answering. Introd
 
 We introduce a promptable document question answering model where the focus is on the visual segmentation task, where the model is given a document and a question, and the model is expected to segment the document based on that question. The model is pre-trained on a large corpus of documents and OCRs with the Document Joint Embedding Predictive Architecture (D-JEPA) objective. The D-JEPA objective here masks part of the document, and is predicted based on the joint image and text embedding, while a masked text is predicted based on the image embedding.
 
+\section{Online Natural Gradient Algorithm for Low-Rank Tensor Gradients}
+
+\subsection{Introduction}
+
+Natural gradient methods are optimization algorithms that adjust parameter updates according to the geometry of the parameter space, leading to faster convergence compared to standard gradient descent. They precondition the gradient using the inverse of the Fisher Information Matrix (FIM). However, computing and storing the full FIM and its inverse is computationally infeasible for large-scale models due to their high dimensionality.
+
+To address this challenge, we propose an \textbf{online natural gradient algorithm} that operates in a low-rank subspace of the gradient space. By projecting gradients onto this subspace and approximating the FIM within it, we can efficiently compute natural gradient updates without explicit layer-wise information.
+
+\subsection{Algorithm Description}
+
+The algorithm consists of the following key steps:
+
+\begin{enumerate}
+    \item \textbf{Low-Rank Gradient Projection}
+    \item \textbf{Gradient History Buffer Maintenance}
+    \item \textbf{FIM Approximation Using Gradient History}
+    \item \textbf{Natural Gradient Computation via Woodbury Identity}
+    \item \textbf{Efficient Computation Using Cholesky Decomposition}
+\end{enumerate}
+
+We will explain each step in detail.
+
+\subsubsection{Step 1: Low-Rank Gradient Projection}
+
+Given a full-rank gradient tensor $\boldsymbol{g} \in \mathbb{R}^{n_1 \times n_2 \times \cdots \times n_d}$, we project it onto a low-rank subspace using Tucker decomposition. The Tucker decomposition approximates $\boldsymbol{g}$ as:
+
+\[
+\boldsymbol{g} \approx \mathcal{G} = \mathcal{C} \times_1 \mathbf{U}^{(1)} \times_2 \mathbf{U}^{(2)} \times_3 \cdots \times_d \mathbf{U}^{(d)},
+\]
+
+where:
+
+\begin{itemize}
+    \item $\mathcal{C} \in \mathbb{R}^{r_1 \times r_2 \times \cdots \times r_d}$ is the core tensor.
+    \item $\mathbf{U}^{(i)} \in \mathbb{R}^{n_i \times r_i}$ are the factor matrices (orthogonal matrices).
+    \item $\times_i$ denotes the mode-$i$ tensor-matrix product.
+    \item $r_i$ is the rank along mode $i$, with $r_i \ll n_i$.
+\end{itemize}
+
+The low-rank representation (transformed gradient) is obtained by:
+
+\[
+\boldsymbol{g}_{\text{low}} = \text{Transform}(\boldsymbol{g}) = \boldsymbol{g} \times_1 (\mathbf{U}^{(1)})^\top \times_2 (\mathbf{U}^{(2)})^\top \times_3 \cdots \times_d (\mathbf{U}^{(d)})^\top.
+\]
+
+\subsubsection{Step 2: Gradient History Buffer Maintenance}
+
+We maintain a buffer of the recent $s$ low-rank gradient vectors to capture local curvature information. Let $\boldsymbol{g}_t$ be the transformed low-rank gradient at iteration $t$, flattened into a vector:
+
+\[
+\boldsymbol{g}_t \in \mathbb{R}^{k}, \quad \text{where } k = r_1 r_2 \cdots r_d.
+\]
+
+We store the recent $s$ gradients in the matrix $\mathbf{G}$:
+
+\[
+\mathbf{G} = [\boldsymbol{g}_{t - s + 1}, \boldsymbol{g}_{t - s + 2}, \dots, \boldsymbol{g}_t] \in \mathbb{R}^{k \times s}.
+\]
+
+\subsubsection{Step 3: Approximating the Fisher Information Matrix}
+
+We approximate the FIM within the low-rank subspace using the outer products of the stored gradients:
+
+\[
+\mathbf{F} = \lambda \mathbf{I}_k + \mathbf{G} \mathbf{G}^\top,
+\]
+
+where:
+
+\begin{itemize}
+    \item $\lambda > 0$ is a damping term to ensure numerical stability.
+    \item $\mathbf{I}_k$ is the $k \times k$ identity matrix.
+\end{itemize}
+
+\subsubsection{Step 4: Computing the Natural Gradient via Woodbury Identity}
+
+Directly computing $\mathbf{F}^{-1}$ is computationally expensive for large $k$. Instead, we use the \textbf{Woodbury identity} to efficiently compute $\mathbf{F}^{-1} \boldsymbol{g}_t$:
+
+\[
+\mathbf{F}^{-1} \boldsymbol{g}_t = \frac{1}{\lambda} \left( \boldsymbol{g}_t - \mathbf{G} \left( \lambda \mathbf{I}_s + \mathbf{G}^\top \mathbf{G} \right)^{-1} \mathbf{G}^\top \boldsymbol{g}_t \right).
+\]
+
+Let us define:
+
+\begin{itemize}
+    \item $\mathbf{S} = \lambda \mathbf{I}_s + \mathbf{G}^\top \mathbf{G} \in \mathbb{R}^{s \times s}$.
+    \item $\boldsymbol{y} = \mathbf{G}^\top \boldsymbol{g}_t \in \mathbb{R}^s$.
+\end{itemize}
+
+Then, we compute:
+
+\begin{enumerate}
+    \item $\mathbf{S} = \lambda \mathbf{I}_s + \mathbf{G}^\top \mathbf{G}$.
+    \item Solve $\mathbf{S} \boldsymbol{z} = \boldsymbol{y}$ for $\boldsymbol{z}$.
+    \item Compute $\mathbf{F}^{-1} \boldsymbol{g}_t = \dfrac{1}{\lambda} \left( \boldsymbol{g}_t - \mathbf{G} \boldsymbol{z} \right)$.
+\end{enumerate}
+
+\subsubsection{Step 5: Efficient Computation Using Cholesky Decomposition}
+
+To efficiently solve the linear system $\mathbf{S} \boldsymbol{z} = \boldsymbol{y}$, we use \textbf{Cholesky decomposition}:
+
+\begin{enumerate}
+    \item Compute the Cholesky factorization of $\mathbf{S}$:
+
+    \[
+    \mathbf{S} = \mathbf{L} \mathbf{L}^\top,
+    \]
+
+    where $\mathbf{L}$ is a lower triangular matrix.
+
+    \item Solve for $\boldsymbol{u}$ in the forward substitution:
+
+    \[
+    \mathbf{L} \boldsymbol{u} = \boldsymbol{y}.
+    \]
+
+    \item Solve for $\boldsymbol{z}$ in the backward substitution:
+
+    \[
+    \mathbf{L}^\top \boldsymbol{z} = \boldsymbol{u}.
+    \]
+\end{enumerate}
+
+\subsection{Algorithm Summary}
+
+At each iteration $t$, the algorithm proceeds as follows:
+
+\begin{enumerate}
+    \item \textbf{Project the Full-Rank Gradient}:
+
+    \begin{itemize}
+        \item Obtain the low-rank transformed gradient $\boldsymbol{g}_t$ using the current factors $\{\mathbf{U}^{(i)}\}$.
+    \end{itemize}
+
+    \item \textbf{Update Gradient History}:
+
+    \begin{itemize}
+        \item If the history buffer is full, remove the oldest gradient.
+        \item Add $\boldsymbol{g}_t$ to the history buffer $\mathbf{G}$.
+    \end{itemize}
+
+    \item \textbf{Compute Intermediate Quantities}:
+
+    \begin{itemize}
+        \item $\mathbf{S} = \lambda \mathbf{I}_s + \mathbf{G}^\top \mathbf{G}$.
+        \item $\boldsymbol{y} = \mathbf{G}^\top \boldsymbol{g}_t$.
+    \end{itemize}
+
+    \item \textbf{Solve for $\boldsymbol{z}$}:
+
+    \begin{itemize}
+        \item Use Cholesky decomposition of $\mathbf{S}$ to solve $\mathbf{S} \boldsymbol{z} = \boldsymbol{y}$.
+    \end{itemize}
+
+    \item \textbf{Compute the Natural Gradient}:
+
+    \begin{itemize}
+        \item $\tilde{\boldsymbol{g}}_t = \dfrac{1}{\lambda} \left( \boldsymbol{g}_t - \mathbf{G} \boldsymbol{z} \right)$.
+    \end{itemize}
+
+    \item \textbf{Reshape and Project Back}:
+
+    \begin{itemize}
+        \item Reshape $\tilde{\boldsymbol{g}}_t$ back to the low-rank tensor shape.
+        \item Optionally, project back to the full parameter space using the inverse transform.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Mathematical Formulas}
+
+\subsubsection{Low-Rank Projection}
+
+The transformed low-rank gradient is obtained by:
+
+\[
+\boldsymbol{g}_{\text{low}} = \boldsymbol{g} \times_1 (\mathbf{U}^{(1)})^\top \times_2 (\mathbf{U}^{(2)})^\top \times_3 \cdots \times_d (\mathbf{U}^{(d)})^\top.
+\]
+
+\subsubsection{FIM Approximation}
+
+We approximate the FIM as:
+
+\[
+\mathbf{F} = \lambda \mathbf{I}_k + \mathbf{G} \mathbf{G}^\top.
+\]
+
+\subsubsection{Natural Gradient Computation}
+
+Compute the natural gradient using:
+
+\[
+\tilde{\boldsymbol{g}}_t = \mathbf{F}^{-1} \boldsymbol{g}_t = \dfrac{1}{\lambda} \left( \boldsymbol{g}_t - \mathbf{G} \boldsymbol{z} \right),
+\]
+
+where $\boldsymbol{z}$ solves:
+
+\[
+\left( \lambda \mathbf{I}_s + \mathbf{G}^\top \mathbf{G} \right) \boldsymbol{z} = \mathbf{G}^\top \boldsymbol{g}_t.
+\]
+
+\subsubsection{Efficient Solution via Cholesky Decomposition}
+
+\begin{enumerate}
+    \item Compute $\mathbf{L}$ such that:
+
+    \[
+    \lambda \mathbf{I}_s + \mathbf{G}^\top \mathbf{G} = \mathbf{L} \mathbf{L}^\top.
+    \]
+
+    \item Solve for $\boldsymbol{u}$:
+
+    \[
+    \mathbf{L} \boldsymbol{u} = \boldsymbol{y}.
+    \]
+
+    \item Solve for $\boldsymbol{z}$:
+
+    \[
+    \mathbf{L}^\top \boldsymbol{z} = \boldsymbol{u}.
+    \]
+
+    \item Compute the natural gradient:
+
+    \[
+    \tilde{\boldsymbol{g}}_t = \dfrac{1}{\lambda} \left( \boldsymbol{g}_t - \mathbf{G} \boldsymbol{z} \right).
+    \]
+\end{enumerate}
+
+\subsection{Notes on Implementation}
+
+\subsubsection{Avoiding Large Matrix Inversions}
+
+By using the Woodbury identity and Cholesky decomposition, we avoid inverting large matrices of size $k \times k$, where $k$ can be very large.
+
+\subsubsection{Computational Efficiency}
+
+\begin{itemize}
+    \item \textbf{Matrix-Vector Products}: Preferred over matrix-matrix multiplications for efficiency on GPUs.
+    \item \textbf{GPU Computation}: All tensors are kept on the GPU to avoid data transfer overhead.
+    \item \textbf{Efficient Linear Algebra}: Utilizing optimized GPU routines for operations like matrix multiplication and Cholesky decomposition.
+\end{itemize}
+
+\subsubsection{Memory Efficiency}
+
+The history size $s$ is kept small (e.g., $s = 10$) to limit memory usage and computational cost.
+
+\subsubsection{Numerical Stability}
+
+The damping term $\lambda$ ensures that $\mathbf{S}$ is positive definite, allowing for stable Cholesky decomposition.
+
+\subsection{Conclusion}
+
+The proposed online natural gradient algorithm efficiently approximates the natural gradient in a low-rank subspace without requiring explicit layer-wise information. By maintaining a history of recent low-rank gradients and utilizing the Woodbury identity along with Cholesky decomposition, we can compute natural gradient updates efficiently on GPUs. This makes the method suitable for large-scale optimization problems where full natural gradient methods are computationally prohibitive.
+
+\section{Model}
+
 \begin{tikzpicture}[node distance=2cm and 3cm]
 
    % Nodes
