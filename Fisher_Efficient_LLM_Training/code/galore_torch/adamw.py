@@ -1,183 +1,251 @@
-# copy dependencies from transformers/optimization.py
-import math
-import warnings
-from typing import Callable, Iterable, Tuple
-
 import torch
-from torch import nn
-from torch.optim import Optimizer
-
-from transformers.utils.versions import require_version
-
-from .galore_projector import GaLoreProjector
+from torch import nn, Tensor
+from torch.optim.optimizer import Optimizer
+from typing import List, Optional, Tuple, Union, Iterable, Callable
 from .galore_projector_tensor import GaLoreProjectorTensor
-from .random_projector import RandomProjector
-
 
 class AdamW(Optimizer):
-    """
-    Implements Adam algorithm with weight decay fix as introduced in [Decoupled Weight Decay
-    Regularization](https://arxiv.org/abs/1711.05101).
-
-    Parameters:
-        params (`Iterable[nn.parameter.Parameter]`):
-            Iterable of parameters to optimize or dictionaries defining parameter groups.
-        lr (`float`, *optional*, defaults to 0.001):
-            The learning rate to use.
-        betas (`Tuple[float,float]`, *optional*, defaults to `(0.9, 0.999)`):
-            Adam's betas parameters (b1, b2).
-        eps (`float`, *optional*, defaults to 1e-06):
-            Adam's epsilon for numerical stability.
-        weight_decay (`float`, *optional*, defaults to 0.0):
-            Decoupled weight decay to apply.
-        correct_bias (`bool`, *optional*, defaults to `True`):
-            Whether or not to correct bias in Adam (for instance, in Bert TF repository they use `False`).
-        no_deprecation_warning (`bool`, *optional*, defaults to `False`):
-            A flag used to disable the deprecation warning (set to `True` to disable the warning).
-    """
-
     def __init__(
         self,
-        params: Iterable[nn.parameter.Parameter],
+        params: Union[Iterable[nn.parameter.Parameter], Iterable[dict]],
         lr: float = 1e-3,
         betas: Tuple[float, float] = (0.9, 0.999),
-        eps: float = 1e-6,
-        weight_decay: float = 0.0,
-        correct_bias: bool = True,
-        no_deprecation_warning: bool = True,
-        projection_type_random: bool = True,
+        eps: float = 1e-8,
+        weight_decay: float = 1e-2,
+        amsgrad: bool = False,
+        *,
+        maximize: bool = False,
+        capturable: bool = False,
+        differentiable: bool = False,
+        rank: Optional[int] = None,
+        update_proj_gap: int = 200,
+        scale: float = 1.0,
+        proj_type: str = 'std',
     ):
-        if not no_deprecation_warning:
-            warnings.warn(
-                "This implementation of AdamW is deprecated and will be removed in a future version. Use the PyTorch"
-                " implementation torch.optim.AdamW instead, or set `no_deprecation_warning=True` to disable this"
-                " warning",
-                FutureWarning,
-            )
-        require_version("torch>=1.5.0")  # add_ with alpha
-        if lr < 0.0:
-            raise ValueError(f"Invalid learning rate: {lr} - should be >= 0.0")
-        if not 0.0 <= betas[0] < 1.0:
-            raise ValueError(
-                f"Invalid beta parameter: {betas[0]} - should be in [0.0, 1.0)"
-            )
-        if not 0.0 <= betas[1] < 1.0:
-            raise ValueError(
-                f"Invalid beta parameter: {betas[1]} - should be in [0.0, 1.0)"
-            )
+        if not 0.0 <= lr:
+            raise ValueError(f"Invalid learning rate: {lr}")
         if not 0.0 <= eps:
-            raise ValueError(f"Invalid epsilon value: {eps} - should be >= 0.0")
-        defaults = {
-            "lr": lr,
-            "betas": betas,
-            "eps": eps,
-            "weight_decay": weight_decay,
-            "correct_bias": correct_bias,
-        }
+            raise ValueError(f"Invalid epsilon value: {eps}")
+        if not 0.0 <= betas[0] < 1.0:
+            raise ValueError(f"Invalid beta parameter at index 0: {betas[0]}")
+        if not 0.0 <= betas[1] < 1.0:
+            raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
+        if not 0.0 <= weight_decay:
+            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
+
+        defaults = dict(
+            lr=lr,
+            betas=betas,
+            eps=eps,
+            weight_decay=weight_decay,
+            amsgrad=amsgrad,
+            maximize=maximize,
+            capturable=capturable,
+            differentiable=differentiable,
+            rank=rank,
+            update_proj_gap=update_proj_gap,
+            scale=scale,
+            proj_type=proj_type,
+        )
         super().__init__(params, defaults)
-        self.projection_type_random = projection_type_random
+        self.init_lr = lr
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        for group in self.param_groups:
+            group.setdefault("amsgrad", False)
+            group.setdefault("maximize", False)
+            group.setdefault("capturable", False)
+            group.setdefault("differentiable", False)
+            for p in group["params"]:
+                state = self.state[p]
+                if len(state) != 0 and not torch.is_tensor(state["step"]):
+                    state["step"] = torch.tensor(float(state["step"]))
 
     @torch.no_grad()
     def step(self, closure: Callable = None):
-        """
-        Performs a single optimization step.
+        """Performs a single optimization step.
 
-        Arguments:
-            closure (`Callable`, *optional*): A closure that reevaluates the model and returns the loss.
+        Args:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
         """
         loss = None
         if closure is not None:
             loss = closure()
 
         for group in self.param_groups:
+            params_with_grad: List[Tensor] = []
+            grads: List[Tensor] = []
+            exp_avgs: List[Tensor] = []
+            exp_avg_sqs: List[Tensor] = []
+            max_exp_avg_sqs: List[Tensor] = []
+            state_steps: List[Tensor] = []
+            projectors: List[Optional[GaLoreProjectorTensor]] = []
+
+            amsgrad = group["amsgrad"]
+            beta1, beta2 = group["betas"]
+
             for p in group["params"]:
                 if p.grad is None:
                     continue
                 grad = p.grad
                 if grad.is_sparse:
-                    raise RuntimeError(
-                        "Adam does not support sparse gradients, please consider SparseAdam instead"
-                    )
+                    raise RuntimeError("AdamW does not support sparse gradients")
 
                 state = self.state[p]
 
+                # Initialize state step
                 if "step" not in state:
-                    state["step"] = 0
-
-                if "dim" not in group:
-                    group["dim"] = 2
+                    state["step"] = torch.zeros(
+                        (), dtype=torch.float32, device=p.device
+                    ) if group["capturable"] else torch.tensor(0.0)
 
                 # GaLore Projection
-                if "rank" in group:
+                if group["rank"] is not None:
                     if "projector" not in state:
-                        if not self.projection_type_random:
-                            if group["dim"] <= 2:
-                                state["projector"] = GaLoreProjector(
-                                    group["rank"],
-                                    update_proj_gap=group["update_proj_gap"],
-                                    scale=group["scale"],
-                                    proj_type=group["proj_type"],
-                                )
-                            else:
-                                state["projector"] = GaLoreProjectorTensor(
-                                    group["rank"],
-                                    update_proj_gap=group["update_proj_gap"],
-                                    scale=group["scale"],
-                                    proj_type=group["proj_type"],
-                                )
-                        else:
-                            state["projector"] = RandomProjector(
-                                rank=group["rank"],
-                                update_proj_gap=group["update_proj_gap"],
-                                scale=group["scale"],
-                                proj_type=group["proj_type"],
-                            )
-                    grad = state["projector"].project(grad, state["step"])
+                        state["projector"] = GaLoreProjectorTensor(
+                            rank=group["rank"],
+                            update_proj_gap=group["update_proj_gap"],
+                            scale=group["scale"],
+                            proj_type=group["proj_type"],
+                        )
+                    grad = state["projector"].project(
+                        grad,
+                        int(state["step"].item()),
+                        lr_ratio=group["lr"] / self.init_lr,
+                    )
+                else:
+                    state["projector"] = None
+
+                params_with_grad.append(p)
+                grads.append(grad)
+                projectors.append(state["projector"])
 
                 # State initialization
                 if "exp_avg" not in state:
-                    # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros_like(grad)
-                    # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = torch.zeros_like(grad)
-
-                exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
-                beta1, beta2 = group["betas"]
-
-                state["step"] += 1
-
-                # Decay the first and second moment running average coefficient
-                # In-place operations to update the averages at the same time
-                exp_avg.mul_(beta1).add_(grad, alpha=(1.0 - beta1))
-                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
-                denom = exp_avg_sq.sqrt().add_(group["eps"])
-
-                step_size = group["lr"]
-                if group["correct_bias"]:  # No bias correction for Bert
-                    bias_correction1 = 1.0 - beta1 ** state["step"]
-                    bias_correction2 = 1.0 - beta2 ** state["step"]
-                    step_size = (
-                        step_size * math.sqrt(bias_correction2) / bias_correction1
+                    state["exp_avg"] = torch.zeros_like(
+                        p, memory_format=torch.preserve_format
                     )
+                    state["exp_avg_sq"] = torch.zeros_like(
+                        p, memory_format=torch.preserve_format
+                    )
+                    if amsgrad:
+                        state["max_exp_avg_sq"] = torch.zeros_like(
+                            p, memory_format=torch.preserve_format
+                        )
 
-                # compute norm gradient
-                norm_grad = exp_avg / denom
+                exp_avgs.append(state["exp_avg"])
+                exp_avg_sqs.append(state["exp_avg_sq"])
+                if amsgrad:
+                    max_exp_avg_sqs.append(state["max_exp_avg_sq"])
+                state_steps.append(state["step"])
 
-                # GaLore Projection Back
-                if "rank" in group:
-                    norm_grad = state["projector"].project_back(norm_grad)
-
-                p.add_(norm_grad, alpha=-step_size)
-
-                # Just adding the square of the weights to the loss function is *not*
-                # the correct way of using L2 regularization/weight decay with Adam,
-                # since that will interact with the m and v parameters in strange ways.
-                #
-                # Instead we want to decay the weights in a manner that doesn't interact
-                # with the m/v parameters. This is equivalent to adding the square
-                # of the weights to the loss with plain (non-momentum) SGD.
-                # Add weight decay at the end (fixed version)
-                if group["weight_decay"] > 0.0:
-                    p.add_(p, alpha=(-group["lr"] * group["weight_decay"]))
+            # Perform optimization step
+            adamw(
+                params_with_grad,
+                grads,
+                exp_avgs,
+                exp_avg_sqs,
+                max_exp_avg_sqs,
+                state_steps,
+                projectors,
+                amsgrad=amsgrad,
+                beta1=beta1,
+                beta2=beta2,
+                lr=group["lr"],
+                weight_decay=group["weight_decay"],
+                eps=group["eps"],
+                maximize=group["maximize"],
+                capturable=group["capturable"],
+                differentiable=group["differentiable"],
+            )
 
         return loss
+
+
+def adamw(
+    params: List[Tensor],
+    grads: List[Tensor],
+    exp_avgs: List[Tensor],
+    exp_avg_sqs: List[Tensor],
+    max_exp_avg_sqs: List[Tensor],
+    state_steps: List[Tensor],
+    projectors: List[Optional[GaLoreProjectorTensor]],
+    *,
+    amsgrad: bool,
+    beta1: float,
+    beta2: float,
+    lr: float,
+    weight_decay: float,
+    eps: float,
+    maximize: bool,
+    capturable: bool,
+    differentiable: bool,
+):
+    """Functional API that performs AdamW algorithm computation with projection.
+
+    Args:
+        params (List[Tensor]): List of parameters.
+        grads (List[Tensor]): List of gradients.
+        exp_avgs (List[Tensor]): Exponential moving averages of gradients.
+        exp_avg_sqs (List[Tensor]): Exponential moving averages of squared gradients.
+        max_exp_avg_sqs (List[Tensor]): Max exponential moving averages of squared gradients.
+        state_steps (List[Tensor]): List of step counts.
+        projectors (List[Optional[GaLoreProjector]]): List of projectors per parameter.
+        amsgrad (bool): Whether to use AMSGrad variant.
+        beta1 (float): Coefficient for computing running averages of gradient.
+        beta2 (float): Coefficient for computing running averages of squared gradient.
+        lr (float): Learning rate.
+        weight_decay (float): Weight decay coefficient.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the params based on the objective, instead of minimizing.
+        capturable (bool): Whether to use capturable version.
+        differentiable (bool): Whether to use differentiable version.
+    """
+    for i, param in enumerate(params):
+        grad = grads[i] if not maximize else -grads[i]
+        exp_avg = exp_avgs[i]
+        exp_avg_sq = exp_avg_sqs[i]
+        step_t = state_steps[i]
+
+        # Update step
+        step_t += 1
+
+        # Decay the first and second moment running average coefficient
+        exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
+        exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
+
+        # Compute denominator
+        denom = exp_avg_sq.sqrt().add_(eps)
+
+        # Compute step size
+        step = step_t.item()
+        bias_correction1 = 1.0 - beta1 ** step
+        bias_correction2 = 1.0 - beta2 ** step
+
+        step_size = lr / bias_correction1
+        bias_correction2_sqrt = bias_correction2 ** 0.5
+        denom = (exp_avg_sq.sqrt() / bias_correction2_sqrt).add_(eps)
+
+        # Compute normalized gradient
+        norm_grad = exp_avg / denom
+
+        # GaLore Projection Back
+        if projectors[i] is not None:
+            norm_grad = projectors[i].project_back(norm_grad)
+
+        # Update parameter
+        param.add_(norm_grad, alpha=-step_size)
+
+        # Perform step weight decay
+        # Just adding the square of the weights to the loss function is *not*
+        # the correct way of using L2 regularization/weight decay with Adam,
+        # since that will interact with the m and v parameters in strange ways.
+        #
+        # Instead we want to decay the weights in a manner that doesn't interact
+        # with the m/v parameters. This is equivalent to adding the square
+        # of the weights to the loss with plain (non-momentum) SGD.
+        # Add weight decay at the end (fixed version)
+        if weight_decay > 0.0:
+            param.add_(param, alpha=(- lr * weight_decay))

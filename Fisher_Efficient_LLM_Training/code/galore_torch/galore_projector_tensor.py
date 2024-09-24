@@ -2,43 +2,64 @@ import torch
 from tensorly.decomposition import tucker
 from tensorly import tenalg
 
+# Ensure tensorly uses PyTorch as the backend
+import tensorly as tl
+tl.set_backend('pytorch')
 
 # The GaLoreProjector class in Python implements a projection method using orthogonal matrix
-# decomposition for low-rank approximation of gradients for general tensors of dimension >2.
+# decomposition for low-rank approximation of gradients for general tensors.
 # We use tensor decomposition using tensorly library: https://tensorly.org/stable/index.html
 class GaLoreProjectorTensor:
     """
-    A class that represents a projector for the GaLore algorithm.
+    GaLore Projector for tensors using tensor decomposition.
 
     Args:
-        rank (int): The rank of the projector.
-        verbose (bool, optional): Whether to print verbose output. Defaults to False.
-        update_proj_gap (int, optional): The number of iterations between updating the orthogonal matrix. Defaults to 200.
-        scale (float, optional): The scaling factor for the projected gradients. Defaults to 1.0.
+        rank (int): The rank for the Tucker decomposition.
+        update_proj_gap (int, optional): Iterations between updating the projection factors. Defaults to 200.
+        scale (float, optional): Scaling factor for the projected gradients. Defaults to 1.0.
+        proj_type (str, optional): Type of projection ('std' or 'continuous'). Defaults to 'std'.
     """
 
-    def __init__(self, rank, verbose=False, update_proj_gap=200, scale=1.0):
+    def __init__(self, rank, update_proj_gap=200, scale=1.0, proj_type='std'):
         self.rank = rank
-        self.verbose = verbose
         self.update_proj_gap = update_proj_gap
         self.scale = scale
-        self.ortho_matrix = None
+        self.proj_type = proj_type
+        self.core = None
+        self.factors = None
+        self.optimizers = None  # For continuous projection
         self.transformed_low_rank = None
 
-    def project(self, full_rank_grad, iter):
+    def project(self, full_rank_grad, iter, lr_ratio=1.0):
         """
         Projects the full-rank gradients onto the low-rank subspace.
 
         Args:
             full_rank_grad (torch.Tensor): The full-rank gradients.
             iter (int): The current iteration.
+            lr_ratio (float): Ratio of current learning rate to initial learning rate.
 
         Returns:
             torch.Tensor: The transformed low-rank gradients.
         """
-        if self.ortho_matrix is None and iter % self.update_proj_gap == 0:
-            self.ortho_matrix = self.get_orthogonal_matrix(full_rank_grad, self.rank)
-        self.transformed_low_rank = self.transform(self.ortho_matrix, full_rank_grad)
+        if self.proj_type == 'std':
+            if self.core is None or iter % self.update_proj_gap == 0:
+                self.core, self.factors = self.get_orthogonal_matrix(full_rank_grad, self.rank)
+            self.transformed_low_rank = self.transform(self.factors, full_rank_grad)
+        elif 'continuous' in self.proj_type:
+            if self.core is None:
+                self.core, self.factors = self.get_orthogonal_matrix(full_rank_grad, self.rank)
+                # Initialize optimizers for factors
+                self.optimizers = []
+                for factor in self.factors:
+                    factor.requires_grad = True
+                    optimizer = torch.optim.AdamW([factor], lr=1.0 / self.update_proj_gap)
+                    self.optimizers.append(optimizer)
+            else:
+                self._update_factors(full_rank_grad, lr_ratio)
+            self.transformed_low_rank = self.transform(self.factors, full_rank_grad)
+        else:
+            raise NotImplementedError(f"Projection type '{self.proj_type}' is not implemented.")
         return self.transformed_low_rank
 
     def project_back(self, low_rank_grad):
@@ -51,55 +72,103 @@ class GaLoreProjectorTensor:
         Returns:
             torch.Tensor: The full-rank gradients.
         """
-        full_rank_grad = self.inverse_transform(
-            self.ortho_matrix, self.transformed_low_rank
-        )
+        full_rank_grad = self.inverse_transform(self.factors, self.transformed_low_rank)
+        if 'continuous' in self.proj_type:
+            # Update factors after projection back
+            for optimizer in self.optimizers:
+                optimizer.step()
+                optimizer.zero_grad()
         return full_rank_grad * self.scale
 
-    # svd decomposition
-    def get_orthogonal_matrix(self, weights, rank_all):
+    def _update_factors(self, full_rank_grad, lr_ratio):
         """
-        Computes the orthogonal matrix using SVD decomposition.
+        Updates the factors using gradient descent.
+
+        Args:
+            full_rank_grad (torch.Tensor): The full-rank gradients.
+            lr_ratio (float): Ratio of current learning rate to initial learning rate.
+        """
+        # Set all factors to require gradients
+        for factor in self.factors:
+            factor.requires_grad = True
+
+        # Zero gradients
+        for optimizer in self.optimizers:
+            optimizer.zero_grad()
+
+        # Compute loss for updating factors
+        approx_grad = self.inverse_transform(self.factors, self.transform(self.factors, full_rank_grad))
+        loss = torch.norm(full_rank_grad - approx_grad) ** 2
+
+        # Backpropagate
+        loss.backward()
+
+        # Update learning rates based on lr_ratio
+        for optimizer in self.optimizers:
+            for group in optimizer.param_groups:
+                group['lr'] = (1.0 / self.update_proj_gap) * lr_ratio
+
+        # Note: Optimizer steps are taken in project_back after projection
+
+    def get_orthogonal_matrix(self, weights, rank):
+        """
+        Computes the Tucker decomposition of the weights.
 
         Args:
             weights (torch.Tensor): The weights to decompose.
-            rank_all (int): The desired rank of the decomposition.
+            rank (int or tuple): The desired rank for each mode.
 
         Returns:
-            tuple: A tuple containing the core and factors of the orthogonal matrix.
+            Tuple[torch.Tensor, List[torch.Tensor]]: The core tensor and factors.
         """
-        module_params = weights
-        if module_params.data.dtype != torch.float:
-            matrix = module_params.data.float()
-        else:
-            matrix = module_params.data
-        tucker_tensor = tucker(matrix, rank=rank_all)
-        return tucker_tensor
+        # Ensure weights are float32
+        original_dtype = weights.dtype
+        if weights.dtype != torch.float32:
+            weights = weights.float()
 
-    def transform(self, tensor, x):
+        # Determine the ranks for each mode
+        if isinstance(rank, int):
+            # For higher-order tensors, apply the same rank to all modes
+            ranks = [rank] * weights.ndim
+        elif isinstance(rank, (list, tuple)):
+            # Ensure that the length of rank matches the number of dimensions
+            if len(rank) != weights.ndim:
+                raise ValueError(f"Rank tuple length {len(rank)} does not match tensor dimensions {weights.ndim}.")
+            ranks = rank
+        else:
+            raise ValueError("Rank must be an integer or a tuple/list of integers.")
+
+        # Perform Tucker decomposition
+        core, factors = tucker(weights, ranks=ranks)
+
+        # Convert factors back to original dtype if necessary
+        factors = [factor.to(dtype=original_dtype) for factor in factors]
+
+        return core, factors
+
+
+    def transform(self, factors, x):
         """
-        Transforms the input tensor using the factors of the orthogonal matrix.
+        Transforms the input tensor using the factors.
 
         Args:
-            tensor (tuple): A tuple containing the core and factors of the orthogonal matrix.
+            factors (List[torch.Tensor]): Factors from the Tucker decomposition.
             x (torch.Tensor): The input tensor.
 
         Returns:
             torch.Tensor: The transformed tensor.
         """
-        _, factors = tensor
         return tenalg.multi_mode_dot(x, factors, transpose=True)
 
-    def inverse_transform(self, tensor, x):
+    def inverse_transform(self, factors, x):
         """
-        Inverse transforms the input tensor using the factors of the orthogonal matrix.
+        Reconstructs the tensor from the low-rank representation.
 
         Args:
-            tensor (tuple): A tuple containing the core and factors of the orthogonal matrix.
-            x (torch.Tensor): The input tensor.
+            factors (List[torch.Tensor]): Factors from the Tucker decomposition.
+            x (torch.Tensor): The low-rank representation.
 
         Returns:
-            torch.Tensor: The inverse transformed tensor.
+            torch.Tensor: The reconstructed tensor.
         """
-        _, factors = tensor
         return tenalg.multi_mode_dot(x, factors)
