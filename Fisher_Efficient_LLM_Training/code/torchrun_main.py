@@ -26,7 +26,7 @@ from peft_pretraining.dataloader import PreprocessedIterableDataset
 from peft_pretraining.modeling_llama import LlamaForCausalLM
 
 import bitsandbytes as bnb
-from galore_torch import GaLoreAdamW, GaLoreAdamW8bit, GaLoreAdafactor
+from subspace_optim import GaLoreAdamW, GaLoreAdamW8bit, GaLoreAdafactor
 
 transformers.logging.set_verbosity_error()
 
@@ -268,7 +268,7 @@ def main(args):
 
     global_step = 0
     update_step = 0
-    beginning_step = 0
+    # beginning_step = 0
     tokens_seen = 0
     tokens_seen_before = 0
 
@@ -519,7 +519,7 @@ def main(args):
     # 2x training performance increase via compilation and shape padding
     model = torch.compile(model, options=torch_compile_options)
 
-    for batch_idx, batch in enumerate(dataloader):
+    for _, batch in enumerate(dataloader):
         global_step += 1
         local_step += 1
 

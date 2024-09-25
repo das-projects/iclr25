@@ -44,10 +44,10 @@ from transformers import (
     get_scheduler,
     LlamaForSequenceClassification,
 )
-from transformers.utils import check_min_version, send_example_telemetry
+from transformers.utils import send_example_telemetry
 from transformers.utils.versions import require_version
 
-from galore_torch import GaLoreAdamW
+from subspace_optim.subspace_adamw import SubspaceAdamW
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 # check_min_version("4.38.0.dev0")
@@ -442,8 +442,8 @@ def main():
         )
     else:
         config = AutoConfig.from_pretrained(args.model_name_or_path)
-        setattr(config, "num_labels", num_labels)
-        setattr(config, "finetuning_task", args.task_name)
+        config.num_labels = num_labels
+        config.finetuning_task = args.task_name
         tokenizer = AutoTokenizer.from_pretrained(
             "t5-base", model_max_length=args.max_length
         )
@@ -463,7 +463,7 @@ def main():
             if key not in checkpoint.keys():
                 print(f"key {key} not in checkpoint")
         model.load_state_dict(checkpoint, strict=False)
-        logger.info(f"Model successfully loaded (strict=False policy)")
+        logger.info("Model successfully loaded (strict=False policy)")
         logger.info("*" * 40)
 
     # project modules
@@ -670,7 +670,7 @@ def main():
                 "proj_type": args.proj_type,
             },
         ]
-        optimizer = GaLoreAdamW(param_groups, lr=args.learning_rate)
+        optimizer = SubspaceAdamW(param_groups, lr=args.learning_rate)
 
     # Scheduler and math around the number of training steps.
     overrode_max_train_steps = False
@@ -920,7 +920,7 @@ def main():
         eval_dataloader = accelerator.prepare(eval_dataloader)
 
         model.eval()
-        for step, batch in enumerate(eval_dataloader):
+        for _, batch in enumerate(eval_dataloader):
             outputs = model(**batch)
             predictions = outputs.logits.argmax(dim=-1)
             metric.add_batch(

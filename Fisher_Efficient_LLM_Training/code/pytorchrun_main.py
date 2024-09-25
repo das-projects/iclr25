@@ -1,4 +1,5 @@
 import os
+import glob
 import argparse
 
 import torch
@@ -11,11 +12,11 @@ from transformers import AutoConfig, AutoTokenizer
 import datasets
 import datasets.distributed
 
-from peft_pretraining import training_utils, args_utils
-from peft_pretraining.dataloader import PreprocessedIterableDataset
-from peft_pretraining.modeling_llama import LlamaForCausalLM
+from model import training_utils, args_utils
+from model.dataloader import PreprocessedIterableDataset
+from model.llama import LlamaForCausalLM
 
-from galore_torch.adamw import SubSpaceAdamW
+from subspace_optim.subspace_adamw import SubSpaceAdamW
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
@@ -36,12 +37,21 @@ def parse_args(args):
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--model_config", type=str, required=True)
-    parser.add_argument("--continue_from", type=str, default=None)
     parser.add_argument("--batch_size", type=int, required=True)
     parser.add_argument("--gradient_accumulation", type=int, default=None)
     parser.add_argument("--total_batch_size", type=int, default=None)
     parser.add_argument("--max_length", type=int, default=256)
-    parser.add_argument("--optimizer", default="galore_adamw", type=str)
+    parser.add_argument(
+        "--optimizer",
+        default="galore_adamw",
+        type=str,
+        choices=[
+            "adamw",
+            "galore_adamw",
+            "online_galore_adamw",
+            "online_natural_galore_adamw",
+        ],
+    )
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument(
         "--scheduler",
@@ -69,7 +79,8 @@ def parse_args(args):
         "You can use M and B suffixes, e.g. 100M or 1B.",
     )
     parser.add_argument("--save_every", type=int, default=1_000)
-    parser.add_argument("--save_dir", type=str, default=None)
+    parser.add_argument("--continue_from_last_checkpoint", type=bool, default=False)
+    parser.add_argument("--save_dir", type=str, default="checkpoints/")
     parser.add_argument("--tags", type=str, default=None)
     parser.add_argument(
         "--dtype",
@@ -188,11 +199,10 @@ class LlamaLightningModule(pl.LightningModule):
         )
         self.model = LlamaForCausalLM(model_config)
         self.model.generation_config.pad_token_id = tokenizer.pad_token_id
+        self.pad_idx = tokenizer.eos_token_id
 
         if args.activation_checkpointing:
             self.model.gradient_checkpointing_enable()
-
-        self.pad_idx = tokenizer.eos_token_id
 
         # For logging
         self.tokens_seen = 0
@@ -302,7 +312,7 @@ class LlamaLightningModule(pl.LightningModule):
                 param_groups,
                 lr=args.lr,
                 weight_decay=args.weight_decay,
-                )
+            )
         else:
             raise ValueError(f"Optimizer {args.optimizer} not supported")
         return optimizer
@@ -406,8 +416,16 @@ def main(args):
         auto_lr_find=True,
     )
 
-    trainer.tune(model, datamodule=data_module)
-    trainer.fit(model, datamodule=data_module)
+    if not args.continue_from_last_checkpoint:
+        trainer.tune(model, datamodule=data_module)
+        trainer.fit(model, datamodule=data_module)
+    else:
+        # Automatically find the latest checkpoint
+        ckpt_dir = args.save_dir
+        latest_ckpt = max(
+            glob.glob(os.path.join(ckpt_dir, "*.ckpt")), key=os.path.getctime
+        )
+        trainer.fit(model, datamodule=data_module, ckpt_path=latest_ckpt)
 
 
 if __name__ == "__main__":

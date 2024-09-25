@@ -33,10 +33,10 @@ class GaLoreProjectorTensor:
         self.transformed_low_rank = None
 
         # Parameters for natural gradient approximation
-        self.grad_history = []        # Buffer to store previous low-rank gradients
-        self.history_size = 10        # Number of previous gradients to keep
-        self.lambda_damping = 1e-3    # Damping term λ for numerical stability
-        self.F_inv = None             # Inverse Fisher Information Matrix
+        self.grad_history = []  # Buffer to store previous low-rank gradients
+        self.history_size = 10  # Number of previous gradients to keep
+        self.lambda_damping = 1e-3  # Damping term λ for numerical stability
+        self.F_inv = None  # Inverse Fisher Information Matrix
 
     def project(self, full_rank_grad, iter, lr_ratio=1.0):
         """
@@ -58,10 +58,16 @@ class GaLoreProjectorTensor:
                     )
                 self.transformed_low_rank = self.transform(self.factors, full_rank_grad)
             case "online_galore":
-                self.transformed_low_rank = self._project_online_galore(full_rank_grad, lr_ratio)
+                self.transformed_low_rank = self._project_online_galore(
+                    full_rank_grad, lr_ratio
+                )
             case "online_natural_galore":
-                self.transformed_low_rank = self._project_online_galore(full_rank_grad, lr_ratio)
-                self.transformed_low_rank = self._natural_gradient_transform(self.transformed_low_rank)
+                self.transformed_low_rank = self._project_online_galore(
+                    full_rank_grad, lr_ratio
+                )
+                self.transformed_low_rank = self._natural_gradient_transform(
+                    self.transformed_low_rank
+                )
             case _:
                 raise NotImplementedError(
                     f"Projection type '{self.proj_type}' is not implemented."
@@ -142,7 +148,7 @@ class GaLoreProjectorTensor:
         G_temp = torch.mv(G, temp)  # Shape: [k]
 
         # Compute natural gradient: ng = λ^{-1} * grad_vector - λ^{-2} * G_temp
-        ng_vector = (lambda_inv * grad_vector) - ((lambda_inv ** 2) * G_temp)
+        ng_vector = (lambda_inv * grad_vector) - ((lambda_inv**2) * G_temp)
 
         # Reshape back to the original shape of low_rank_grad
         natural_grad = ng_vector.view_as(low_rank_grad)
