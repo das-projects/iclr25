@@ -96,8 +96,8 @@ class SubSpaceAdamW(Optimizer):
                         else torch.tensor(0.0)
                     )
 
-                # GaLore Projection TODO
-                if group["rank"] is not None:
+                # GaLore Projection
+                if "rank" in group:
                     if "projector" not in state:
                         state["projector"] = GaLoreProjectorTensor(
                             rank=group["rank"],
@@ -120,14 +120,14 @@ class SubSpaceAdamW(Optimizer):
                 # State initialization
                 if "exp_avg" not in state:
                     state["exp_avg"] = torch.zeros_like(
-                        p, memory_format=torch.preserve_format
+                        grad, memory_format=torch.preserve_format
                     )
                     state["exp_avg_sq"] = torch.zeros_like(
-                        p, memory_format=torch.preserve_format
+                        grad, memory_format=torch.preserve_format
                     )
                     if amsgrad:
                         state["max_exp_avg_sq"] = torch.zeros_like(
-                            p, memory_format=torch.preserve_format
+                            grad, memory_format=torch.preserve_format
                         )
 
                 exp_avgs.append(state["exp_avg"])

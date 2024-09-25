@@ -227,7 +227,7 @@ class LlamaLightningModule(pl.LightningModule):
         ).sum().item() * self.trainer.world_size
 
         self.log(
-            "train_loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True
+            "loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True
         )
         self.log(
             "tokens_seen",
@@ -242,15 +242,16 @@ class LlamaLightningModule(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         labels = batch["input_ids"].clone()
         labels[labels == self.pad_idx] = -100
-        outputs = self.model(**batch, labels=labels)
+        with torch.no_grad():
+            outputs = self.model(**batch, labels=labels)
         loss = outputs.loss
 
         tokens = (
             batch["input_ids"] != self.pad_idx
         ).sum().item() * self.trainer.world_size
 
-        self.log("val_loss", loss, on_step=False, prog_bar=True, logger=True)
-        self.log("val_tokens", tokens, on_step=False, prog_bar=True, logger=True)
+        self.log("final_eval_loss", loss, on_step=False, prog_bar=True, logger=True)
+        self.log("final_eval_tokens", tokens, on_step=False, prog_bar=True, logger=True)
 
         # Early stopping condition
         if tokens >= self.args.max_train_tokens:
@@ -387,7 +388,7 @@ def main(args):
     data_module = C4DataModule(args, tokenizer)
 
     # Initialize wandb logger
-    wandb_logger = WandbLogger(project="galore-c4", name=args.name)
+    wandb_logger = WandbLogger(project="galore-c4")
     wandb_logger.log_hyperparams(vars(args))
 
     # Model checkpoint callback

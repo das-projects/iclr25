@@ -223,7 +223,7 @@ class Slow_RoPE_Embedding(torch.autograd.Function):
 pass
 
 
-@torch.compile(fullgraph=False, dynamic=True, options=torch_compile_options)
+# @torch.compile(fullgraph=False, dynamic=True, options=torch_compile_options)
 def inplace_rope_embedding(Q, K, cos, sin, position_ids):
     Q = Slow_RoPE_Embedding.apply(Q, cos, sin, position_ids)
     K = Slow_RoPE_Embedding.apply(K, cos, sin, position_ids)
@@ -338,7 +338,7 @@ class LlamaAttention(nn.Module):
         if past_key_value is not None:
             kv_seq_len += past_key_value[0].shape[-2]
         cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
-        query_states, key_states = inplace_rope_embedding(
+        query_states, key_states = apply_rotary_pos_emb(
             query_states, key_states, cos, sin, position_ids
         )
         # [bsz, nh, t, hd]

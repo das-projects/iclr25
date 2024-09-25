@@ -181,29 +181,30 @@ class GaLoreProjectorTensor:
             full_rank_grad (torch.Tensor): The full-rank gradients.
             lr_ratio (float): Ratio of current learning rate to initial learning rate.
         """
-        # Set all factors to require gradients
-        for factor in self.factors:
-            factor.requires_grad = True
+        with torch.enable_grad():
+            # Set all factors to require gradients
+            for factor in self.factors:
+                factor.requires_grad = True
 
-        # Zero gradients
-        for optimizer in self.optimizers:
-            optimizer.zero_grad()
+            # Zero gradients
+            for optimizer in self.optimizers:
+                optimizer.zero_grad()
 
-        # Compute loss for updating factors
-        approx_grad = self.inverse_transform(
-            self.factors, self.transform(self.factors, full_rank_grad)
-        )
-        loss = torch.norm(full_rank_grad - approx_grad) ** 2
+            # Compute loss for updating factors
+            approx_grad = self.inverse_transform(
+                self.factors, self.transform(self.factors, full_rank_grad)
+            )
+            loss = torch.norm(full_rank_grad - approx_grad) ** 2
 
-        # Backpropagate
-        loss.backward()
+            # Backpropagate
+            loss.backward()
 
-        # Update learning rates based on lr_ratio
-        for optimizer in self.optimizers:
-            for group in optimizer.param_groups:
-                group["lr"] = (1.0 / self.update_proj_gap) * lr_ratio
+            # Update learning rates based on lr_ratio
+            for optimizer in self.optimizers:
+                for group in optimizer.param_groups:
+                    group["lr"] = (1.0 / self.update_proj_gap) * lr_ratio
 
-        # Note: Optimizer steps are taken in project_back after projection
+            # Note: Optimizer steps are taken in project_back after projection
 
     def get_orthogonal_matrix(self, weights, rank):
         """
@@ -236,7 +237,7 @@ class GaLoreProjectorTensor:
             raise ValueError("Rank must be an integer or a tuple/list of integers.")
 
         # Perform Tucker decomposition
-        core, factors = tucker(weights, ranks=ranks)
+        core, factors = tucker(weights, rank=ranks)
 
         # Convert factors back to original dtype if necessary
         factors = [factor.to(dtype=original_dtype) for factor in factors]
