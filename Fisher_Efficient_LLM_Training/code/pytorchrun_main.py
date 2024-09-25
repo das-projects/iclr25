@@ -5,6 +5,7 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.utils.data
+import torch._dynamo
 
 import transformers
 from transformers import AutoConfig, AutoTokenizer
@@ -22,6 +23,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
+torch._dynamo.config.suppress_errors = True
 transformers.logging.set_verbosity_error()
 
 torch_compile_options = {
@@ -79,7 +81,7 @@ def parse_args(args):
     parser.add_argument(
         "--max_train_tokens",
         type=training_utils.max_train_tokens_to_number,
-        default=None,
+        default='10M',
         help="Number of tokens to train on. Overwrites num_training_steps. "
         "You can use M and B suffixes, e.g. 100M or 1B.",
     )
@@ -92,7 +94,7 @@ def parse_args(args):
         type=str,
         default="bfloat16" if torch.cuda.is_bf16_supported() else "float32",
     )
-    parser.add_argument("--workers", type=int, default=os.cpu_count())
+    parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--name", type=str, default="test")
     parser.add_argument("--grad_clipping", type=float, default=0.0)
@@ -129,6 +131,7 @@ class C4DataModule(pl.LightningDataModule):
             self.world_size = 1
 
         if stage == "fit" or stage is None:
+            # Set up train_data
             data = datasets.load_dataset(
                 "allenai/c4",
                 "en",
@@ -145,20 +148,23 @@ class C4DataModule(pl.LightningDataModule):
                 process_rank=self.process_rank,
                 world_size=self.world_size,
             )
-        if stage == "validate" or stage is None:
-            val_data = datasets.load_dataset(
-                "allenai/c4",
-                "en",
-                split="validation",
-                streaming=True,
-                trust_remote_code=True,
-            )
-            val_data = val_data.shuffle(seed=self.seed_for_shuffle)
-            self.val_data = val_data.map(
-                self.preprocess_batched,
-                batched=True,
-                remove_columns=["text", "timestamp", "url"],
-            )
+
+        # Set up val_data for validation stage as well
+        val_data = datasets.load_dataset(
+            "allenai/c4",
+            "en",
+            split="validation",
+            streaming=True,
+            trust_remote_code=True,
+        )
+        val_data = val_data.shuffle(seed=self.seed_for_shuffle)
+        self.val_data = val_data.map(
+            self.preprocess_batched,
+            batched=True,
+            remove_columns=["text", "timestamp", "url"],
+        )
+        # Set format for PyTorch tensors
+        # self.val_data.with_format(type='torch', columns=['input_ids', 'attention_mask'])
 
     def preprocess_batched(self, batch):
         batch = self.tokenizer(
@@ -247,7 +253,7 @@ class LlamaLightningModule(pl.LightningModule):
         self.log("val_tokens", tokens, on_step=False, prog_bar=True, logger=True)
 
         # Early stopping condition
-        if tokens >= self.args.target_eval_tokens:
+        if tokens >= self.args.max_train_tokens:
             self.trainer.should_stop = True
 
         return {"loss": loss, "tokens": tokens}
@@ -377,7 +383,7 @@ def main(args):
     )
 
     model = LlamaLightningModule(args, tokenizer)
-    model = torch.compile(model, options=torch_compile_options)
+    # model = torch.compile(model, options=torch_compile_options)
     data_module = C4DataModule(args, tokenizer)
 
     # Initialize wandb logger
@@ -402,7 +408,7 @@ def main(args):
         strategy="auto",
         max_steps=args.num_training_steps,
         accumulate_grad_batches=args.gradient_accumulation,
-        precision="bf16" if args.dtype in ["bf16", "bfloat16"] else 32,
+        precision="bf16-mixed" if args.dtype in ["bf16", "bfloat16"] else 32,
         callbacks=[checkpoint_callback, lr_monitor, custom_checkpoint],
         logger=wandb_logger,
         val_check_interval=args.eval_every,
@@ -411,6 +417,7 @@ def main(args):
         enable_checkpointing=True,
         # Other trainer arguments as needed
         enable_model_summary=False,
+        limit_val_batches=100,
     )
 
     if not args.continue_from_last_checkpoint:

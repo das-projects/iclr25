@@ -96,7 +96,7 @@ class SubSpaceAdamW(Optimizer):
                         else torch.tensor(0.0)
                     )
 
-                # GaLore Projection
+                # GaLore Projection TODO
                 if group["rank"] is not None:
                     if "projector" not in state:
                         state["projector"] = GaLoreProjectorTensor(
