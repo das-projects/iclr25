@@ -6,11 +6,11 @@ with open("requirements.txt") as f:
 setup(
     name="Subspace Projected Gradient Descent",
     version="1.0",
-    description="Memory-Efficient LLM Training by Random Subspace Projection and Natural Gradients",
+    description="Memory-Efficient LLM Training via Online Subspace Natural Gradient Descent",
     url="https://github.com/das-projects/iclr25.git",
     author="Arijit Das",
     author_email="arijit.das@selfsupervised.de",
     license="Apache 2.0",
-    packages=["galore_torch"],
+    packages=["subspace_optim"],
     install_requires=required,
 )
