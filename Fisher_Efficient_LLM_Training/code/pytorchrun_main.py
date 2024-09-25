@@ -41,7 +41,7 @@ def parse_args(args):
     parser.add_argument("--model_config", type=str, required=True)
     parser.add_argument("--batch_size", type=int, required=True)
     parser.add_argument("--gradient_accumulation", type=int, default=None)
-    parser.add_argument("--total_batch_size", type=int, default=None)
+    parser.add_argument("--total_batch_size", type=int, required=True)
     parser.add_argument("--max_length", type=int, default=256)
     parser.add_argument(
         "--optimizer",
@@ -360,7 +360,7 @@ def main(args):
     pl.seed_everything(args.seed)
     torch.set_float32_matmul_precision('high')
 
-    num_gpus = 1 if args.single_gpu else torch.cuda.device_count()
+    num_gpus = torch.cuda.device_count()
 
     if args.total_batch_size is not None:
         if args.gradient_accumulation is None:
