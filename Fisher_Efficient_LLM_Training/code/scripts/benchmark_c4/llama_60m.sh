@@ -3,7 +3,7 @@ python pytorchrun_main.py \
     --model_config configs/llama_60m.json \
     --batch_size 256 \
     --total_batch_size 512 \
-    --optimizer natural_galore_adamw \
+    --optimizer online_natural_galore_adamw \
     --lr 0.01 \
     --rank 128 \
     --update_proj_gap 200 \

@@ -1,7 +1,0 @@
-{
-    "global_step": 4000,
-    "update_step": 2000,
-    "tokens_seen": 261119999,
-    "tokens_seen_before": 260989439,
-    "update_time": 0.3826637268066406
-}

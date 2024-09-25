@@ -98,7 +98,7 @@ class GaLoreProjectorTensor:
             self.core, self.factors = self.get_orthogonal_matrix(
                 full_rank_grad, self.rank
             )
-            # Initialize optimizers for factors TODO: check learning rate
+            # Initialize optimizers for factors
             self.optimizers = []
             for factor in self.factors:
                 factor.requires_grad = True

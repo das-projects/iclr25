@@ -82,7 +82,7 @@ def parse_args(args):
     parser.add_argument(
         "--max_train_tokens",
         type=training_utils.max_train_tokens_to_number,
-        default='10M',
+        default='1B',
         help="Number of tokens to train on. Overwrites num_training_steps. "
         "You can use M and B suffixes, e.g. 100M or 1B.",
     )
@@ -214,6 +214,7 @@ class LlamaLightningModule(pl.LightningModule):
 
         # For logging
         self.tokens_seen = 0
+        self.eval_tokens_seen = 0
 
     def forward(self, **batch):
         return self.model(**batch)
@@ -248,18 +249,19 @@ class LlamaLightningModule(pl.LightningModule):
             outputs = self.model(**batch, labels=labels)
         loss = outputs.loss
 
-        tokens = (
+        self.eval_tokens_seen += (
             batch["input_ids"] != self.pad_idx
         ).sum().item() * self.trainer.world_size
 
         self.log("final_eval_loss", loss, prog_bar=True, logger=True)
-        self.log("final_eval_tokens", tokens, prog_bar=True, logger=True)
+        self.log("final_eval_tokens", self.eval_tokens_seen, prog_bar=True, logger=True)
 
         # Early stopping condition
-        if tokens >= self.args.max_train_tokens:
+        tokens_seen = self.eval_tokens_seen + self.tokens_seen
+        if tokens_seen >= self.args.max_train_tokens:
             self.trainer.should_stop = True
 
-        return {"final_eval_loss": loss, "final_eval_tokens": tokens}
+        return {"final_eval_loss": loss, "final_eval_tokens": self.eval_tokens_seen}
 
     def configure_optimizers(self):
         args = self.args

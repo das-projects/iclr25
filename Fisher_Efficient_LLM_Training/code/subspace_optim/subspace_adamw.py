@@ -4,6 +4,13 @@ from torch.optim.optimizer import Optimizer
 from typing import List, Optional, Tuple, Union, Iterable, Callable
 from .galore_projector_tensor import GaLoreProjectorTensor
 
+torch_compile_options = {
+    "epilogue_fusion": False,
+    "max_autotune": False,
+    "shape_padding": True,
+    "trace.enabled": False,  # Output Triton kernel outputs!
+    "triton.cudagraphs": True,
+}
 
 class SubSpaceAdamW(Optimizer):
     def __init__(
@@ -160,7 +167,6 @@ class SubSpaceAdamW(Optimizer):
             )
 
         return loss
-
 
 def adamw(
     params: List[Tensor],
