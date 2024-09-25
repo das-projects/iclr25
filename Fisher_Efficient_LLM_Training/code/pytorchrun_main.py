@@ -98,7 +98,7 @@ def parse_args(args):
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--name", type=str, default="test")
-    parser.add_argument("--grad_clipping", type=float, default=0.0)
+    parser.add_argument("--grad_clipping", type=float, default=1.0)
 
     # disable ddp, single_gpu
     parser.add_argument("--single_gpu", default=True, action="store_true")
@@ -423,6 +423,7 @@ def main(args):
         enable_model_summary=False,
         limit_val_batches=1000,
         benchmark=True,
+        log_every_n_steps=1,
     )
 
     if not args.continue_from_last_checkpoint:
