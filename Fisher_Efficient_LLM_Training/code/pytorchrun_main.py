@@ -118,6 +118,7 @@ class C4DataModule(pl.LightningDataModule):
         self.train_data = None
         self.val_data = None
         self.seed_for_shuffle = args.seed
+        self.batch_size = args.batch_size
 
     def prepare_data(self):
         # Download datasets
@@ -145,7 +146,7 @@ class C4DataModule(pl.LightningDataModule):
             self.train_data = PreprocessedIterableDataset(
                 data=data,
                 tokenizer=self.tokenizer,
-                batch_size=self.args.batch_size,
+                batch_size=self.batch_size,
                 max_length=self.args.max_length,
                 process_rank=self.process_rank,
                 world_size=self.world_size,
@@ -165,8 +166,6 @@ class C4DataModule(pl.LightningDataModule):
             batched=True,
             remove_columns=["text", "timestamp", "url"],
         )
-        # Set format for PyTorch tensors
-        # self.val_data.with_format(type='torch', columns=['input_ids', 'attention_mask'])
 
     def preprocess_batched(self, batch):
         batch = self.tokenizer(
@@ -189,7 +188,7 @@ class C4DataModule(pl.LightningDataModule):
     def val_dataloader(self):
         return torch.utils.data.DataLoader(
             self.val_data,
-            batch_size=self.args.batch_size,
+            batch_size=self.batch_size,
             num_workers=self.args.workers,
             pin_memory=True,
         )
@@ -209,6 +208,7 @@ class LlamaLightningModule(pl.LightningModule):
         self.model = torch.compile(self.model, options=torch_compile_options)
         self.model.generation_config.pad_token_id = tokenizer.pad_token_id
         self.pad_idx = tokenizer.eos_token_id
+        self.lr = args.lr
 
         if args.activation_checkpointing:
             self.model.gradient_checkpointing_enable()
@@ -427,9 +427,9 @@ def main(args):
     )
 
     if not args.continue_from_last_checkpoint:
-        tuner = Tuner(trainer=trainer)
-        tuner.scale_batch_size(model, datamodule=data_module, mode='binsearch', init_val=args.batch_size)
-        tuner.lr_find(model, datamodule=data_module, num_training=100)
+        #tuner = Tuner(trainer=trainer)
+        # tuner.scale_batch_size(model, datamodule=data_module, mode='binsearch', init_val=args.batch_size)
+        #tuner.lr_find(model, datamodule=data_module, num_training=100)
         trainer.fit(model, datamodule=data_module)
     else:
         # Automatically find the latest checkpoint
