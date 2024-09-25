@@ -59,6 +59,11 @@ def parse_args(args):
         default="cosine",
         choices=["linear", "cosine", "cosine_restarts"],
     )
+    # GaLore parameters
+    parser.add_argument("--rank", type=int, default=128)
+    parser.add_argument("--update_proj_gap", type=int, default=50)
+    parser.add_argument("--galore_scale", type=float, default=1.0)
+
     parser.add_argument("--min_lr_ratio", type=float, default=0.1)
     parser.add_argument("--activation_checkpointing", action="store_true")
     parser.add_argument("--weight_decay", type=float, default=0.01)
@@ -91,11 +96,6 @@ def parse_args(args):
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--name", type=str, default="test")
     parser.add_argument("--grad_clipping", type=float, default=0.0)
-
-    # GaLore parameters
-    parser.add_argument("--rank", type=int, default=128)
-    parser.add_argument("--update_proj_gap", type=int, default=50)
-    parser.add_argument("--galore_scale", type=float, default=1.0)
 
     # disable ddp, single_gpu
     parser.add_argument("--single_gpu", default=True, action="store_true")
