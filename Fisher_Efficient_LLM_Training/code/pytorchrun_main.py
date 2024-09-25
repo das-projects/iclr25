@@ -16,7 +16,7 @@ from model import training_utils, args_utils
 from model.dataloader import PreprocessedIterableDataset
 from model.llama import LlamaForCausalLM
 
-from subspace_optim.subspace_adamw import SubSpaceAdamW
+from subspace_optim import SubSpaceAdamW
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
@@ -348,8 +348,10 @@ class CustomCheckpointCallback(pl.Callback):
 
 def main(args):
     pl.seed_everything(args.seed)
+    torch.set_float32_matmul_precision('high')
 
     num_gpus = 1 if args.single_gpu else torch.cuda.device_count()
+
     if args.total_batch_size is not None:
         if args.gradient_accumulation is None:
             assert (
@@ -375,6 +377,7 @@ def main(args):
     )
 
     model = LlamaLightningModule(args, tokenizer)
+    model = torch.compile(model, options=torch_compile_options)
     data_module = C4DataModule(args, tokenizer)
 
     # Initialize wandb logger
@@ -396,7 +399,7 @@ def main(args):
     trainer = pl.Trainer(
         accelerator="gpu",
         devices=num_gpus,
-        strategy="ddp" if not args.single_gpu else None,
+        strategy="auto",
         max_steps=args.num_training_steps,
         accumulate_grad_batches=args.gradient_accumulation,
         precision="bf16" if args.dtype in ["bf16", "bfloat16"] else 32,
@@ -408,16 +411,9 @@ def main(args):
         enable_checkpointing=True,
         # Other trainer arguments as needed
         enable_model_summary=False,
-        compile_model=True,
-        compile_options=torch_compile_options,
-        deterministic=True,
-        benchmark=True,
-        # auto_scale_batch_size='power',
-        auto_lr_find=True,
     )
 
     if not args.continue_from_last_checkpoint:
-        trainer.tune(model, datamodule=data_module)
         trainer.fit(model, datamodule=data_module)
     else:
         # Automatically find the latest checkpoint

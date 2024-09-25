@@ -25,10 +25,10 @@ def check_args_torchrun_main(args):
         args.num_training_steps = args.max_train_tokens // args.total_batch_size
         logger.info(f"Training for {args.num_training_steps} update steps")
 
-    if args.continue_from is not None:
+    if args.continue_from_last_checkpoint is not None:
         assert os.path.exists(
-            args.continue_from
-        ), f"--continue_from={args.continue_from} does not exist"
+            args.continue_from_last_checkpoint
+        ), f"--continue_from={args.continue_from_last_checkpoint} does not exist"
 
     if args.dtype in ["fp16", "float16"]:
         raise NotImplementedError(

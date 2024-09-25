@@ -1,5 +1,5 @@
 # LLaMA-60M, GaLore-Adam, 1 A100, 1 Node
-python torchrun_main.py \
+python pytorchrun_main.py \
     --model_config configs/llama_60m.json \
     --batch_size 256 \
     --total_batch_size 512 \
@@ -13,4 +13,3 @@ python torchrun_main.py \
     --dtype bfloat16 \
     --eval_every 1000 \
     --num_training_steps 10000 \
-    --single_gpu True

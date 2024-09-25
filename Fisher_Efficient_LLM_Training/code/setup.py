@@ -4,7 +4,7 @@ with open("requirements.txt") as f:
     required = f.read().splitlines()
 
 setup(
-    name="Subspace Projected Gradient Descent",
+    name="subspace_optim",
     version="1.0",
     description="Memory-Efficient LLM Training via Online Subspace Natural Gradient Descent",
     url="https://github.com/das-projects/iclr25.git",
