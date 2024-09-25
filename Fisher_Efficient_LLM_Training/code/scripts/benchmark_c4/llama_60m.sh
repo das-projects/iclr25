@@ -13,3 +13,4 @@ python torchrun_main.py \
     --dtype bfloat16 \
     --eval_every 1000 \
     --num_training_steps 10000 \
+    --single_gpu True
