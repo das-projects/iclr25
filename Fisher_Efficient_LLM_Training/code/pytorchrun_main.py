@@ -22,6 +22,7 @@ from subspace_optim import SubSpaceAdamW
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
+from lightning.pytorch.tuner import Tuner
 
 torch._dynamo.config.suppress_errors = True
 transformers.logging.set_verbosity_error()
@@ -96,9 +97,9 @@ def parse_args(args):
         default="bfloat16" if torch.cuda.is_bf16_supported() else "float32",
     )
     parser.add_argument("--workers", type=int, default=8)
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--name", type=str, default="test")
-    parser.add_argument("--grad_clipping", type=float, default=1.0)
+    parser.add_argument("--grad_clipping", type=float, default=0.0)
 
     # disable ddp, single_gpu
     parser.add_argument("--single_gpu", default=True, action="store_true")
@@ -229,7 +230,7 @@ class LlamaLightningModule(pl.LightningModule):
         ).sum().item() * self.trainer.world_size
 
         self.log(
-            "loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True
+            "loss", loss, on_step=True, on_epoch=False, prog_bar=True, logger=True,
         )
         self.log(
             "tokens_seen",
@@ -387,7 +388,6 @@ def main(args):
     )
 
     model = LlamaLightningModule(args, tokenizer)
-    # model = torch.compile(model, options=torch_compile_options)
     data_module = C4DataModule(args, tokenizer)
 
     # Initialize wandb logger
@@ -421,12 +421,15 @@ def main(args):
         enable_checkpointing=True,
         # Other trainer arguments as needed
         enable_model_summary=False,
-        limit_val_batches=1000,
+        limit_val_batches=200,
         benchmark=True,
         log_every_n_steps=1,
     )
 
     if not args.continue_from_last_checkpoint:
+        tuner = Tuner(trainer=trainer)
+        tuner.scale_batch_size(model, datamodule=data_module, mode='binsearch', init_val=args.batch_size)
+        tuner.lr_find(model, datamodule=data_module, num_training=100)
         trainer.fit(model, datamodule=data_module)
     else:
         # Automatically find the latest checkpoint

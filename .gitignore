@@ -173,6 +173,7 @@ model.safetensors
 optimizer.pt
 
 # WANDB
-wandb/
+Fisher_Efficient_LLM_Training/code/wandb/
 wandb/latest-run/
-checkpoints/
+Fisher_Efficient_LLM_Training/code/checkpoints/
+Fisher_Efficient_LLM_Training/code/wandb/latest-run
