@@ -175,7 +175,7 @@ class GaLoreProjectorTensor:
             torch.Tensor: The full-rank gradients.
         """
         full_rank_grad = self.inverse_transform(self.factors, low_rank_grad)
-        if ("online_galore" == self.proj_type or "online_natural_galore" != self.proj_type):
+        if self.proj_type in ["online_galore", "online_natural_galore"]:
             # Update factors after projection back
             for optimizer in self.optimizers:
                 optimizer.step()
