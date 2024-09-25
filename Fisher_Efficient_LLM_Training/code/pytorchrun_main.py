@@ -50,6 +50,7 @@ def parse_args(args):
         choices=[
             "adamw",
             "galore_adamw",
+            "natural_galore_adamw",
             "online_galore_adamw",
             "online_natural_galore_adamw",
         ],
@@ -204,6 +205,7 @@ class LlamaLightningModule(pl.LightningModule):
             args.model_config, trust_remote_code=True
         )
         self.model = LlamaForCausalLM(model_config)
+        self.model = torch.compile(self.model, options=torch_compile_options)
         self.model.generation_config.pad_token_id = tokenizer.pad_token_id
         self.pad_idx = tokenizer.eos_token_id
 
@@ -250,19 +252,20 @@ class LlamaLightningModule(pl.LightningModule):
             batch["input_ids"] != self.pad_idx
         ).sum().item() * self.trainer.world_size
 
-        self.log("final_eval_loss", loss, on_step=False, prog_bar=True, logger=True)
-        self.log("final_eval_tokens", tokens, on_step=False, prog_bar=True, logger=True)
+        self.log("final_eval_loss", loss, on_step=True, prog_bar=True, logger=True)
+        self.log("final_eval_tokens", tokens, on_step=True, prog_bar=True, logger=True)
 
         # Early stopping condition
         if tokens >= self.args.max_train_tokens:
             self.trainer.should_stop = True
 
-        return {"loss": loss, "tokens": tokens}
+        return {"final_eval_loss": loss, "final_eval_tokens": tokens}
 
     def configure_optimizers(self):
         args = self.args
         proj_types = {
             "galore_adamw": "galore",
+            "natural_galore_adamw": "natural_galore",
             "online_galore_adamw": "online_galore",
             "online_natural_galore_adamw": "online_natural_galore",
         }
@@ -396,7 +399,7 @@ def main(args):
         dirpath=args.save_dir,
         every_n_train_steps=args.save_every,
         save_top_k=1,
-        monitor="val_loss",
+        monitor="final_eval_loss",
         mode="min",
     )
     lr_monitor = LearningRateMonitor(logging_interval="step")
@@ -418,7 +421,8 @@ def main(args):
         enable_checkpointing=True,
         # Other trainer arguments as needed
         enable_model_summary=False,
-        limit_val_batches=100,
+        limit_val_batches=1000,
+        benchmark=True,
     )
 
     if not args.continue_from_last_checkpoint:

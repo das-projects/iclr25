@@ -57,6 +57,15 @@ class GaLoreProjectorTensor:
                         full_rank_grad, self.rank
                     )
                 self.transformed_low_rank = self.transform(self.factors, full_rank_grad)
+            case "natural_galore":
+                if self.core is None or iter % self.update_proj_gap == 0:
+                    self.core, self.factors = self.get_orthogonal_matrix(
+                        full_rank_grad, self.rank
+                    )
+                self.transformed_low_rank = self.transform(self.factors, full_rank_grad)
+                self.transformed_low_rank = self._natural_gradient_transform(
+                    self.transformed_low_rank
+                )
             case "online_galore":
                 self.transformed_low_rank = self._project_online_galore(
                     full_rank_grad, lr_ratio
@@ -89,7 +98,7 @@ class GaLoreProjectorTensor:
             self.core, self.factors = self.get_orthogonal_matrix(
                 full_rank_grad, self.rank
             )
-            # Initialize optimizers for factors
+            # Initialize optimizers for factors TODO: check learning rate
             self.optimizers = []
             for factor in self.factors:
                 factor.requires_grad = True
@@ -110,7 +119,7 @@ class GaLoreProjectorTensor:
             torch.Tensor: The transformed low-rank gradients.
         """
         # Flatten the low-rank gradient tensor to a vector
-        grad_vector = low_rank_grad.view(-1)  # Shape: [k]
+        grad_vector = low_rank_grad.reshape(-1)  # Shape: [k]
 
         # Ensure the gradient is on the same device as the history
         device = grad_vector.device
@@ -137,8 +146,8 @@ class GaLoreProjectorTensor:
         # Compute G^T * grad_vector ∈ ℝ^{s}
         GTg = torch.mv(G.t(), grad_vector)  # Shape: [s]
 
-        # Perform Cholesky decomposition (_ex is faster as it skips the slow error checking)
-        L = torch.linalg.cholesky_ex(S)  # S = L @ L.T, L is lower triangular
+        # Perform Cholesky decomposition
+        L = torch.linalg.cholesky(S)  # S = L @ L.T, L is lower triangular
 
         # Solve for temp in S * temp = G^T * grad_vector
         temp = torch.cholesky_solve(GTg.unsqueeze(1), L)  # Shape: [s, 1]
@@ -165,8 +174,8 @@ class GaLoreProjectorTensor:
         Returns:
             torch.Tensor: The full-rank gradients.
         """
-        full_rank_grad = self.inverse_transform(self.factors, self.transformed_low_rank)
-        if "galore" != self.proj_type:
+        full_rank_grad = self.inverse_transform(self.factors, low_rank_grad)
+        if ("online_galore" == self.proj_type or "online_natural_galore" != self.proj_type):
             # Update factors after projection back
             for optimizer in self.optimizers:
                 optimizer.step()
