@@ -31,7 +31,7 @@ torch_compile_options = {
     "max_autotune": False,
     "shape_padding": True,
     "trace.enabled": False,  # Output Triton kernel outputs!
-    "triton.cudagraphs": False,
+    "triton.cudagraphs": True,
 }
 
 
@@ -252,8 +252,8 @@ class LlamaLightningModule(pl.LightningModule):
             batch["input_ids"] != self.pad_idx
         ).sum().item() * self.trainer.world_size
 
-        self.log("final_eval_loss", loss, on_step=True, prog_bar=True, logger=True)
-        self.log("final_eval_tokens", tokens, on_step=True, prog_bar=True, logger=True)
+        self.log("final_eval_loss", loss, prog_bar=True, logger=True)
+        self.log("final_eval_tokens", tokens, prog_bar=True, logger=True)
 
         # Early stopping condition
         if tokens >= self.args.max_train_tokens:

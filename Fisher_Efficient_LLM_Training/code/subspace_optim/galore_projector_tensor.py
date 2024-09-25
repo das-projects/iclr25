@@ -200,10 +200,11 @@ class GaLoreProjectorTensor:
                 optimizer.zero_grad()
 
             # Compute loss for updating factors
+            normalized_full_rank_grad = full_rank_grad / torch.norm(full_rank_grad)
             approx_grad = self.inverse_transform(
-                self.factors, self.transform(self.factors, full_rank_grad)
+                self.factors, self.transform(self.factors, normalized_full_rank_grad)
             )
-            loss = torch.norm(full_rank_grad - approx_grad) ** 2
+            loss = torch.norm(normalized_full_rank_grad - approx_grad) ** 2
 
             # Backpropagate
             loss.backward()
@@ -213,6 +214,8 @@ class GaLoreProjectorTensor:
                 for group in optimizer.param_groups:
                     group["lr"] = (1.0 / self.update_proj_gap) * lr_ratio
 
+            for factor in self.factors:
+                factor.requires_grad = False
             # Note: Optimizer steps are taken in project_back after projection
 
     def get_orthogonal_matrix(self, weights, rank):

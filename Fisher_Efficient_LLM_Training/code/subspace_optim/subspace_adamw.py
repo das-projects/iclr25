@@ -12,12 +12,13 @@ class SubSpaceAdamW(Optimizer):
         lr: float = 1e-3,
         betas: Tuple[float, float] = (0.9, 0.999),
         eps: float = 1e-6,
-        weight_decay: float = 1e-2,
+        weight_decay: float = 0.0,
         amsgrad: bool = False,
         *,
         maximize: bool = False,
         capturable: bool = False,
         differentiable: bool = False,
+        correct_bias: bool = True,
     ):
         if not 0.0 <= lr:
             raise ValueError(f"Invalid learning rate: {lr}")
@@ -35,6 +36,7 @@ class SubSpaceAdamW(Optimizer):
             betas=betas,
             eps=eps,
             weight_decay=weight_decay,
+            correct_bias=correct_bias,
             amsgrad=amsgrad,
             maximize=maximize,
             capturable=capturable,
@@ -154,6 +156,7 @@ class SubSpaceAdamW(Optimizer):
                 maximize=group["maximize"],
                 capturable=group["capturable"],
                 differentiable=group["differentiable"],
+                correct_bias=group["correct_bias"],
             )
 
         return loss
@@ -177,6 +180,7 @@ def adamw(
     maximize: bool,
     capturable: bool,
     differentiable: bool,
+    correct_bias: bool,
 ):
     """Functional API that performs AdamW algorithm computation with projection.
 
@@ -216,12 +220,11 @@ def adamw(
 
         # Compute step size
         step = step_t.item()
-        bias_correction1 = 1.0 - beta1**step
-        bias_correction2 = 1.0 - beta2**step
-
-        step_size = lr / bias_correction1
-        bias_correction2_sqrt = bias_correction2**0.5
-        denom = (exp_avg_sq.sqrt() / bias_correction2_sqrt).add_(eps)
+        step_size = lr
+        if correct_bias:
+            bias_correction1 = 1.0 - beta1**step
+            bias_correction2 = 1.0 - beta2**step
+            step_size = step_size * (bias_correction2**0.5) / bias_correction1
 
         # Compute normalized gradient
         norm_grad = exp_avg / denom
