@@ -22,7 +22,6 @@ from subspace_optim import SubSpaceAdamW
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
-from lightning.pytorch.tuner import Tuner
 
 torch._dynamo.config.suppress_errors = True
 transformers.logging.set_verbosity_error()
@@ -427,9 +426,6 @@ def main(args):
     )
 
     if not args.continue_from_last_checkpoint:
-        #tuner = Tuner(trainer=trainer)
-        # tuner.scale_batch_size(model, datamodule=data_module, mode='binsearch', init_val=args.batch_size)
-        #tuner.lr_find(model, datamodule=data_module, num_training=100)
         trainer.fit(model, datamodule=data_module)
     else:
         # Automatically find the latest checkpoint
