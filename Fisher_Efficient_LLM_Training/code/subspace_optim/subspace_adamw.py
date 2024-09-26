@@ -20,6 +20,7 @@ class SubSpaceAdamW(Optimizer):
         betas: Tuple[float, float] = (0.9, 0.999),
         eps: float = 1e-6,
         weight_decay: float = 0.0,
+        natural_history: int = 20,
         amsgrad: bool = False,
         *,
         maximize: bool = False,
@@ -43,6 +44,7 @@ class SubSpaceAdamW(Optimizer):
             betas=betas,
             eps=eps,
             weight_decay=weight_decay,
+            natural_history=natural_history,
             correct_bias=correct_bias,
             amsgrad=amsgrad,
             maximize=maximize,
@@ -113,6 +115,7 @@ class SubSpaceAdamW(Optimizer):
                             update_proj_gap=group["update_proj_gap"],
                             scale=group["scale"],
                             proj_type=group["proj_type"],
+                            natural_history=group["natural_history"],
                         )
                     grad = state["projector"].project(
                         grad,

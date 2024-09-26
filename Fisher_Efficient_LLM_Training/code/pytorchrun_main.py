@@ -66,6 +66,7 @@ def parse_args(args):
     parser.add_argument("--rank", type=int, default=128)
     parser.add_argument("--update_proj_gap", type=int, default=50)
     parser.add_argument("--galore_scale", type=float, default=1.0)
+    parser.add_argument("--natural_history", type=int, default=20)
 
     parser.add_argument("--min_lr_ratio", type=float, default=0.1)
     parser.add_argument("--activation_checkpointing", action="store_true")
@@ -282,6 +283,7 @@ class LlamaLightningModule(pl.LightningModule):
                     "update_proj_gap": args.update_proj_gap,
                     "scale": args.galore_scale,
                     "proj_type": proj_types[args.optimizer.lower()],
+                    "natural_history": args.natural_history,
                 },
             ]
         else:

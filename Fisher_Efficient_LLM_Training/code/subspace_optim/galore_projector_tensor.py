@@ -22,7 +22,7 @@ class GaLoreProjectorTensor:
         proj_type (str, optional): Type of projection ('std' or 'continuous'). Defaults to 'std'.
     """
 
-    def __init__(self, rank, update_proj_gap=200, scale=1.0, proj_type="galore"):
+    def __init__(self, rank, update_proj_gap=200, scale=1.0, natural_history = 20, proj_type="galore"):
         self.rank = rank
         self.update_proj_gap = update_proj_gap
         self.scale = scale
@@ -34,7 +34,7 @@ class GaLoreProjectorTensor:
 
         # Parameters for natural gradient approximation
         self.grad_history = []  # Buffer to store previous low-rank gradients
-        self.history_size = 40  # Number of previous gradients to keep
+        self.history_size = natural_history  # Number of previous gradients to keep
         self.lambda_damping = 1e-3  # Damping term λ for numerical stability
         self.F_inv = None  # Inverse Fisher Information Matrix
 
