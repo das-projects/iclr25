@@ -34,7 +34,7 @@ class GaLoreProjectorTensor:
 
         # Parameters for natural gradient approximation
         self.grad_history = []  # Buffer to store previous low-rank gradients
-        self.history_size = 50  # Number of previous gradients to keep
+        self.history_size = 40  # Number of previous gradients to keep
         self.lambda_damping = 1e-3  # Damping term λ for numerical stability
         self.F_inv = None  # Inverse Fisher Information Matrix
 

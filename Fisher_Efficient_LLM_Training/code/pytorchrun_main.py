@@ -360,7 +360,7 @@ class CustomCheckpointCallback(pl.Callback):
 
 def main(args):
     pl.seed_everything(args.seed)
-    torch.set_float32_matmul_precision('high')
+    torch.set_float32_matmul_precision('medium')
 
     num_gpus = torch.cuda.device_count()
 
