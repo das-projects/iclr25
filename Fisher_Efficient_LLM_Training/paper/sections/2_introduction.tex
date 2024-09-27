@@ -7,10 +7,9 @@ To quantify this, consider a model with $\Psi$ parameters. Storing these paramet
 
 This enormous memory demand poses significant challenges, especially when training LLMs on hardware with limited memory capacity. As models continue to scale in size, efficient memory utilization becomes critical for making training feasible and accessible.
 
-
 % \input{algos/code_box.tex}
 
-\subsection{Parallel and Distributed Training Techniques}
+\paragraph{Parallel and Distributed Training Techniques}
 To mitigate the substantial memory requirements in training large language models, researchers have developed various distributed computing techniques that leverage system-level optimizations and hardware resources. One prominent framework is \textbf{Distributed Data Parallel (DDP)} that combines \textbf{data parallelism} where the training dataset is partitioned across multiple devices or nodes, each holding a replica of the model with efficient gradient synchronization mechanisms, minimizing communication overhead. While data parallelism efficiently utilizes multiple GPUs, it can still face memory bottlenecks when model sizes exceed the memory capacity of a single device.
 
 \textbf{Model parallelism} addresses this limitation by partitioning the model itself across multiple devices, allowing for the training of models that are too large to fit into the memory of a single GPU. Techniques like pipeline parallelism \citep{huangGPipeEfficientTraining2019} and tensor parallelism \citep{shoeybiMegatronLMTuningScaling2019} enable the distribution of different layers or partitions of layers across devices. However, model parallelism introduces communication overhead and can be complex to implement effectively.
@@ -27,7 +26,7 @@ Therefore, there is a pressing need for alternative approaches that reduce memor
 
 \def\rr{\mathbb{R}}
 
-\subsection{Parameter-Efficient Fine-Tuning}
+\paragraph{Parameter-Efficient Fine-Tuning}
 
 Parameter-Efficient Fine-Tuning (PEFT) techniques allow for the efficient adaptation of pre-trained language models to various downstream applications without the need to fine-tune all the model's parameters \citep{dingDeltaTuningComprehensive2022}. By updating only a small subset of parameters, PEFT methods significantly reduce the computational and memory overhead associated with full-model fine-tuning.
 
@@ -46,7 +45,7 @@ Despite their benefits, recent works have highlighted several limitations of low
 
 These limitations may stem from inadequate low-rank approximation of the optimal weight matrices in large models, as well as altered training dynamics due to the reparameterization introduced by low-rank adapters. The shortcomings of low-rank parameter reparameterization suggest that alternative strategies are needed to achieve both memory efficiency and high performance.
 
-\subsection{Gradient Low-Rank Projection (GaLore)}
+\paragraph{Gradient Low-Rank Projection (GaLore)}
 
 One promising direction is to approximate the \emph{optimizer states} instead of the parameters themselves. By reducing the memory footprint associated with optimizer states, it is possible to maintain full-parameter learning—thus preserving model capacity and performance—while still achieving significant memory savings.
 
@@ -62,7 +61,7 @@ By operating on low-rank approximations of the gradients, GaLore significantly r
 
 While GaLore offers significant memory savings and enables full-parameter learning, its performance has not yet matched that of original optimizers like Adam or AdamW. Specifically, GaLore's reliance on low-rank gradient approximations can lead to suboptimal convergence rates and may not fully capture the rich optimization dynamics that these standard optimizers achieve with full gradients and optimizer states. These limitations suggest that while GaLore is a valuable step toward memory-efficient training, further enhancements are necessary to bridge the performance gap with standard optimizers.
 
-\subsection{\lowrank{}: Accelerating GaLore with Second-Order Information}
+\paragraph{Our Approach}
 
  To overcome the limitations of GaLore—particularly its performance gap with standard optimizers like Adam and AdamW—we introduce \textbf{Natural GaLore}. This method enhances GaLore by incorporating second-order information, specifically the curvature of the loss landscape, into the optimization process. By accounting for this curvature, Natural GaLore adjusts parameter updates more effectively, leading to faster convergence.
 

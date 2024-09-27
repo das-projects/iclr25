@@ -29,7 +29,7 @@
             \PyCode{grad = weight.grad} \\ 
             \PyComment{original space -> compact space} \\
             \PyCode{lor\_grad = \textbf{project}(grad)} \\
-            \PyComment{update by Adam, Adafactor, etc.} \\
+            \PyComment{update by Adam, AdamW, etc.} \\
             \PyCode{lor\_update = \textbf{update}(lor\_grad)} \\
             \PyComment{compact space -> original space} \\
             \PyCode{update = \textbf{project\_back}(lor\_update)} \\
