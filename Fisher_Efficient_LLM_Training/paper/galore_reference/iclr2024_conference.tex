@@ -1,4 +1,3 @@
-
 \documentclass{article} % For LaTeX2e
 \usepackage{iclr_template/iclr2024_conference,times}
 
@@ -7,10 +6,13 @@
 
 \usepackage{hyperref}
 \usepackage{url}
+\usepackage{forest}
+\usepackage{tikz}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{mathtools}
 \usepackage{amsthm}
+\usetikzlibrary{shapes.geometric, arrows}
 \newcommand{\theHalgorithm}{\arabic{algorithm}}
 
 \usepackage[capitalize,noabbrev]{cleveref}
@@ -27,9 +29,7 @@
 
 \usepackage[textsize=tiny]{todonotes}
 \usepackage{multirow}
-\input{packages}
-\input{macros}
-\input{math_command}
+
 \usepackage{graphicx}
 \usepackage{pifont}
 \usepackage{xcolor,colortbl}
@@ -60,14 +60,12 @@
 \newcommand{\PyComment}[1]{\ttfamily\textcolor{commentcolor}{\# #1}}  %
 \newcommand{\PyCode}[1]{\ttfamily\textcolor{black}{#1}} %
 
-
-
+\tikzstyle{startstop} = [rectangle, rounded corners, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=red!30]
+\tikzstyle{process} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=orange!30]
+\tikzstyle{arrow} = [thick,->,>=stealth]
 \newcommand{\lowrank}{Natural GaLore\xspace}
 \newcommand{\update}{\textsc{update}}
 \newcommand{\project}{\textsc{project}}
-
-\newcommand{\yuandong}[1]{\textcolor{red}{[Yuandong: #1]}}
-\newcommand {\aacomment}[1]{{\color{blue}{AA:}{#1}}}
 
 \title{Natural Subspace Gradient Descent for Memory-Efficient LLM Training}
 
@@ -98,7 +96,6 @@ Düsseldorf, Germany \\
 
 \maketitle
 
-% \input{sections/0-title}
 \input{sections/abs.tex}
 \input{sections/intro.tex}
 \input{sections/related.tex}
@@ -112,10 +109,10 @@ Düsseldorf, Germany \\
 \bibliography{iclr_template/iclr2024_conference}
 \bibliographystyle{iclr_template/iclr2024_conference}
 
-\appendix
-\input{sections/appendix/appendix_related.tex}
-\input{sections/proof}
-\input{sections/appendix/setup.tex}
-\input{sections/appendix/memory.tex}
+%\appendix
+%\input{sections/appendix/appendix_related.tex}
+%\input{sections/proof}
+%\input{sections/appendix/setup.tex}
+%\input{sections/appendix/memory.tex}
 
 \end{document}

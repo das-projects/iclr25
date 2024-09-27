@@ -2,10 +2,11 @@
 \vspace{-8mm}
 \section{Introduction}
 Large Language Models (LLMs) have shown impressive performance across multiple disciplines, including conversational AI and language translation.
-However, pre-training and fine-tuning LLMs require not only a huge amount of computation but is also memory intensive. The memory requirements include not only billions of trainable parameters,  but also their gradients and optimizer states (e.g., gradient momentum and variance in Adam) that can be larger than parameter storage themselves  ~\citep{raffelExploringLimitsTransfer2023,touvronLlamaOpenFoundation2023,chowdheryPaLMScalingLanguage2022}. For example, pre-training a LLaMA 7B model from scratch with a single batch size requires at least 58 GB memory (14GB for trainable parameters, 42GB for Adam optimizer states and weight gradients, and 2GB for activations\protect\footnotemark[1]).
+However, pre-training and fine-tuning LLMs require not only a huge amount of computation but is also memory intensive. The memory requirements include not only billions of trainable parameters,  but also their gradients and optimizer states (e.g., gradient momentum and variance in Adam) that can be larger than parameter storage themselves  ~\citep{raffelExploringLimitsTransfer2020,touvronLlamaOpenFoundation2023,chowdheryPaLMScalingLanguage2022}. For example, pre-training a LLaMA 7B model from scratch with a single batch size requires at least 58 GB memory (14GB for trainable parameters, 42GB for Adam optimizer states and weight gradients, and 2GB for activations\protect\footnotemark[1]).
 This makes the training not feasible on consumer-level GPUs such as NVIDIA RTX 4090 with 24GB memory.
 
 \input{algos/code_box.tex}
+
 In addition to engineering and system efforts, such as gradient checkpointing~\cite{chenTrainingDeepNets2016}, memory offloading~\cite{rajbhandariZeROMemoryOptimizations2020}, etc., to achieve faster and more efficient distributed training, researchers also seek to develop various optimization techniques to reduce the memory usage during pre-training and fine-tuning. 
 
 \def\rr{\mathbb{R}}
