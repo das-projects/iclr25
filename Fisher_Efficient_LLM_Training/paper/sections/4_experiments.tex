@@ -1,111 +1,94 @@
 \section{Experiments}
 
-We evaluate \lowrank{} on both pre-training and fine-tuning of LLMs. All experiments run on NVIDIA A100 GPUs.\vspace{-2mm}
+We evaluate \textbf{Natural GaLore} on both pre-training and fine-tuning tasks for large language models (LLMs). All experiments are conducted on a single node with NVIDIA A100 GPUs to leverage high-performance computing capabilities.
 
+\subsection{Pre-training on the C4 Dataset}
 
-\paragraph{Pre-training on C4.}
-To evaluate its performance, we apply \lowrank{} to train LLaMA-based large language models on the C4 dataset. 
-C4 dataset is a colossal, cleaned version of Common Crawl's web crawl corpus, which is mainly intended to pre-train language models and word representations \citep{raffelExploringLimitsTransfer2023}.
-To best simulate the practical pre-training scenario, we train without data repetition over a sufficiently large amount of data, across a range of model sizes up to 7 Billion parameters.
-\paragraph{Architecture and hyperparameters.}
-We follow the experiment setup from \citet{lialinReLoRAHighRankTraining2023}, which adopts a LLaMA-based\footnote[3]{LLaMA materials in our paper are subject to LLaMA community license.} architecture with RMSNorm and SwiGLU activations \citep{zhangRootMeanSquare2019,shazeerGLUVariantsImprove2020,touvronLlamaOpenFoundation2023}. 
-For each model size, we use the same set of hyperparameters across methods, except the learning rate.
-We run all experiments with BF16 format to reduce memory usage, and we tune the learning rate for each method under the same amount of computational budget and report the best performance.
-The details of our task setups and hyperparameters are provided in the appendix.
-\paragraph{Fine-tuning on GLUE tasks.}
-GLUE is a benchmark for evaluating the performance of NLP models on a variety of tasks, including sentiment analysis, question answering, and textual entailment \citep{wangGLUEMultiTaskBenchmark2019}.
-We use GLUE tasks to benchmark \lowrank{} against LoRA for memory-efficient fine-tuning.
-\input{tables/7b_eval.tex} 
-\input{figures/compare_optimizer.tex}
-\subsection{Comparison with Existing Low-Rank Methods}
+To assess the effectiveness of Natural GaLore, we apply it to pre-train LLaMA-based language models of varying sizes on the C4 dataset. The C4 dataset is a colossal, cleaned version of the Common Crawl corpus, primarily intended for pre-training language models and word representations \citep{raffelExploringLimitsTransfer2023}. It provides a diverse and extensive corpus, making it suitable for evaluating pre-training methods in realistic scenarios.
+
+In order to simulate practical pre-training conditions, we train models without data repetition over a sufficiently large amount of data, covering model sizes ranging from 60 million to 1.1 billion parameters. This approach ensures that our evaluation reflects the challenges encountered in large-scale language model training.
+
+We adopt the experimental setup from \citet{lialinReLoRAHighRankTraining2023}, utilizing a LLaMA-based\footnote[3]{LLaMA materials in our paper are subject to the LLaMA community license.} architecture with RMSNorm and SwiGLU activations \citep{zhangRootMeanSquare2019,shazeerGLUVariantsImprove2020,touvronLlamaOpenFoundation2023}. For each model size, we maintain the same set of hyperparameters across all methods, except for the learning rate, which is tuned individually to ensure optimal performance. All experiments are conducted using the BF16 (Brain Floating Point) format to reduce memory usage without compromising computational efficiency.
+
+To ensure a fair comparison, we allocate the same computational budget to each method and report the best validation perplexity achieved after hyperparameter tuning. Detailed descriptions of the task setups and hyperparameters are provided in the appendix.
+
 \input{tables/lora_comapre_llama.tex}
-\input{tables/compare_downstreaming.tex}
-We first compare \lowrank{} with existing low-rank methods using Adam optimizer across a range of model sizes.
-\paragraph{Full-Rank}
-Our baseline method that applies Adam optimizer with full-rank weights and optimizer states.
-\paragraph{Low-Rank}
-We also evaluate a traditional low-rank approach that represents the weights by learnable low-rank factorization: $W = BA$ \citep{kamalakaraExploringLowRank2022}.
-\paragraph{LoRA}
-\citet{huLoRALowRankAdaptation2021} proposed LoRA to fine-tune pre-trained models with low-rank adaptors: $W = W_0 + BA$, where $W_0$ is fixed initial weights and $BA$ is a learnable low-rank adaptor. In the case of pre-training, $W_0$ is the full-rank initialization matrix.
-We set LoRA alpha to 32 and LoRA dropout to 0.05 as their default settings.
-\paragraph{ReLoRA}
-\citet{lialinReLoRAHighRankTraining2023} proposed ReLoRA, a variant of LoRA designed for pre-training, which periodically merges $BA$ into $W$, and initializes new $BA$ with a reset on optimizer states and learning rate. ReLoRA requires careful tuning of merging frequency, learning rate reset, and optimizer states reset. We evaluate ReLoRA without a full-rank training warmup for a fair comparison.
 
+Table~\ref{tab:lora_compare_llama} presents the validation perplexity and memory consumption for models trained with different methods. Our proposed \textbf{Natural GaLore} consistently outperforms GaLore across all model sizes, achieving validation perplexities closer to the Full-Rank baseline while maintaining significant memory savings. For example, on the 1.1B parameter model, Natural GaLore achieves a perplexity of \textbf{15.58} compared to GaLore's 15.64 and the Full-Rank model's 15.56, all while using substantially less memory (4.38G vs. 7.80G).
 
-For \lowrank{}, we set subspace frequency $T$ to 200 and scale factor $\alpha$ to 0.25 across all model sizes in Table \ref{tab:lora_compare_llama}.
-For each model size, we pick the same rank $r$ for all low-rank methods, and we apply them to all multi-head attention layers and feed-forward layers in the models.
-We train all models using Adam optimizer with the default hyperparameters (e.g., $\beta_1=0.9$, $\beta_2=0.999$, $\epsilon=10^{-8}$).
-We also estimate the memory usage based on BF16 format, including the memory for weight parameters and optimizer states.
-As shown in Table~\ref{tab:lora_compare_llama}, \lowrank{} outperforms other low-rank methods and achieves comparable performance to full-rank training.
-We note that for 1B model size, \lowrank{} even outperforms full-rank baseline when $r=1024$ instead of $r=512$.
-Compared to LoRA and ReLoRA, \lowrank{} requires less memory for storing model parameters and optimizer states. 
-A detailed training setting of each model and memory estimation for each method are in the appendix.
+Furthermore, Natural GaLore demonstrates superior performance compared to other low-rank adaptation methods like LoRA and ReLoRA, particularly as model size increases. LoRA and ReLoRA exhibit higher perplexities and greater memory consumption due to their less efficient use of low-rank structures and the need for additional optimizer states.
 
-\subsection{\lowrank{} with Memory-Efficient Optimizers}
-We demonstrate that \lowrank{} can be applied to various learning algorithms, especially memory-efficient optimizers, to further reduce the memory footprint.
-We apply \lowrank{} to AdamW, 8-bit Adam, and Adafactor optimizers \citep{shazeerAdafactorAdaptiveLearning, loshchilovDecoupledWeightDecay2019,dettmers8bitOptimizersBlockwise2021}.
-We consider Adafactor with first-order statistics to avoid performance degradation.
-
-We evaluate them on LLaMA 1B architecture with 10K training steps, and we tune the learning rate for each setting and report the best performance.
-As shown in Fig.~\ref{fig:compare_optimizer}, applying \lowrank{} does not significantly affect their convergence.
-By using \lowrank{} with a rank of 512, the memory footprint is reduced by up to 62.5\%, on top of the memory savings from using 8-bit Adam or Adafactor optimizer.
-Since 8-bit Adam requires less memory than others, we denote 8-bit \lowrank{} as \lowrank{} with 8-bit Adam, and use it as the default method for the following experiments on 7B model pre-training and memory measurement.
-
-
-\subsection{Scaling up to LLaMA 7B Architecture}
-Scaling ability to 7B models is a key factor for demonstrating if \lowrank is effective for practical LLM pre-training scenarios.
-We evaluate \lowrank{} on an LLaMA 7B architecture with an embedding size of 4096 and total layers of 32.
-We train the model for 150K steps with 19.7B tokens, using 8-node training in parallel with a total of 64 A100 GPUs.
-Due to computational constraints, we compare 8-bit \lowrank{} ($r=1024$) with 8-bit Adam with a single trial without tuning the hyperparameters.   
-As shown in Table \ref{tab:7b_eval}, after 150K steps, 8-bit \lowrank{} achieves a perplexity of 14.65, comparable to 8-bit Adam with a perplexity of 14.61.
-
-
-
-\input{figures/memory_vs_model_size.tex}
-\subsection{Memory-Efficient Fine-Tuning}
-\lowrank{} not only achieves memory-efficient pre-training but also can be used for memory-efficient fine-tuning.
-We fine-tune pre-trained RoBERTa models on GLUE tasks using \lowrank{} and compare its performance with a full fine-tuning baseline and LoRA.
-We use hyperparameters from \citet{huLoRALowRankAdaptation2021} for LoRA and tune the learning rate and scale factor for \lowrank{}.
-As shown in Table~\ref{tab:fine_tuning}, \lowrank{} achieves better performance than LoRA on most tasks with less memory footprint.
-This demonstrates that \lowrank{} can serve as a full-stack memory-efficient training strategy for both LLM pre-training and fine-tuning.
-
-\input{tables/compare_fine_tuning.tex}
-
-\subsection{Measurement of Memory and Throughput}
-\label{sec:memory_measure}
-While Table~\ref{tab:lora_compare_llama} gives the theoretical benefit of \lowrank{} compared to other methods in terms of memory usage, we also measure the actual memory footprint of training LLaMA models by various methods, with a token batch size of 256. 
-The training is conducted on a single device setup without activation checkpointing, memory offloading, and optimizer states partitioning \citep{rajbhandariZeROMemoryOptimizations2020}.
-
-\textbf{Training 7B models on consumer GPUs with 24G memory.} As shown in Fig.~\ref{fig:memory_vs_model_size}, 8-bit \lowrank{} requires significantly less memory than BF16 baseline and 8-bit Adam, and only requires 22.0G memory to pre-train LLaMA 7B with a small per-GPU token batch size (up to 500 tokens). This memory footprint is within 24GB VRAM capacity of a single GPU such as NVIDIA RTX 4090.
-In addition, when activation checkpointing is enabled, per-GPU token batch size can be increased up to 4096. While the batch size is small per GPU, it can be scaled up with data parallelism, which requires much lower bandwidth for inter-GPU communication, compared to model parallelism. Therefore, it is possible that \lowrank{} can be used for elastic training~\cite{linDynamicMinibatchSGD2019} 7B models on consumer GPUs such as RTX 4090s. %
-
-Specifically, we present the memory breakdown in Fig.~\ref{fig:memory_breakdown}.
-It shows that 8-bit \lowrank{} reduces 37.92G (63.3\%) and 24.5G (52.3\%) total memory compared to BF16 Adam baseline and 8-bit Adam, respectively.
-Compared to 8-bit Adam, 8-bit \lowrank{} mainly reduces the memory in two parts: (1) low-rank gradient projection reduces 9.6G (65.5\%) memory of storing optimizer states, and (2) using per-layer weight updates reduces 13.5G memory of storing weight gradients.
-
-\textbf{Throughput overhead of \lowrank{}.} We also measure the throughput of the pre-training LLaMA 1B model with 8-bit \lowrank{} and other methods, where the results can be found in the appendix.
-Particularly, the current implementation of 8-bit \lowrank{} achieves 1019.63 tokens/second, which induces 17\% overhead compared to 8-bit Adam implementation. 
-Disabling per-layer weight updates for \lowrank{} achieves 1109.38 tokens/second, improving the throughput by 8.8\%. We note that our results do not require offloading strategies or checkpointing, which can significantly impact training throughput. 
-We leave optimizing the efficiency of \lowrank{} implementation for future work.
-
-
-
-
+These results highlight the effectiveness of incorporating second-order information through Natural GaLore. By efficiently applying the inverse Empirical Fisher Information Matrix to low-rank gradients, Natural GaLore improves convergence rates and achieves better performance without additional memory overhead. This makes it a compelling choice for large-scale pre-training scenarios where both memory efficiency and model performance are critical.
 
 \vspace{-2mm}
-\section{Ablation Study}
-\paragraph{How many subspaces are needed during pre-training?}
 
-We observe that both too frequent and too slow changes of subspaces hurt the convergence, as shown in Fig.~\ref{fig:ablation} (left). The reason has been discussed in Sec.~\ref{sec:composition-subspace}. In general, for small $r$, the subspace switching should happen more to avoid wasting optimization steps in the wrong subspace, while for large $r$ the gradient updates cover more subspaces, providing more cushion. 
+% \subsection{Fine-Tuning RoBERTa-Base on the GLUE Benchmark}
 
+% To further evaluate the effectiveness of \textbf{Natural GaLore}, we conduct experiments on the General Language Understanding Evaluation (GLUE) benchmark using the pre-trained RoBERTa-Base model. The GLUE benchmark is a collection of nine natural language understanding tasks, including single-sentence tasks like CoLA \citep{warstadt2019neural}, similarity and paraphrase tasks like MRPC \citep{dolan2005automatically} and STS-B \citep{cer2017semeval}, and inference tasks like RTE \citep{dagan2005pascal}, MNLI \citep{williams2018broad}, and QNLI \citep{rajpurkar2016squad}. This benchmark is widely used to assess the performance of language models on diverse linguistic phenomena.
 
-\input{figures/ablation.tex}
+% In our experiments, we fine-tune the RoBERTa-Base model using Natural GaLore and compare its performance with full fine-tuning and LoRA \citep{hu2021lora}. We focus on memory-efficient fine-tuning methods to reduce the computational footprint while maintaining high performance. For each method, we report the average score across all GLUE tasks, along with individual task scores.
 
+% We use the same training hyperparameters across all methods for a fair comparison. The batch size is set to 32, and we fine-tune each model for 3 epochs. The learning rate is selected from \{1e-5, 2e-5, 3e-5\} based on the best validation performance for each task. For Natural GaLore and LoRA, we experiment with rank values of 4 and 8 to study the trade-off between performance and memory efficiency.
 
-\paragraph{How does the rank of subspace affect the convergence?}
-Within a certain range of rank values, decreasing the rank only slightly affects the convergence rate, causing a slowdown with a nearly linear trend.
-As shown in Fig.~\ref{fig:ablation} (right), training with a rank of 128 using 80K steps achieves a lower loss than training with a rank of 512 using 20K steps.
-This shows that \lowrank{} can be used to trade-off between memory and computational cost.
-In a memory-constrained scenario, reducing the rank allows us to stay within the memory budget while training for more steps to preserve the performance.
+% Table~\ref{tab:fine_tuning} presents the results of our experiments. Natural GaLore consistently achieves comparable or better performance than LoRA across most tasks while using less memory. Specifically, with a rank of 4, Natural GaLore attains an average score of \textbf{86.05}, closely matching the full fine-tuning baseline of 86.28, and outperforming LoRA's average score of 85.61. This demonstrates that Natural GaLore can effectively fine-tune large models with reduced memory consumption without sacrificing performance.
 
+% \begin{table}[t]
+%     \caption{\small{Evaluating Natural GaLore for memory-efficient fine-tuning on the GLUE benchmark using pre-trained RoBERTa-Base. We report the average score of all tasks.}}
+%     \label{tab:fine_tuning}
+%     \centering
+%     \resizebox{\linewidth}{!}{%
+%     \begin{tabular}{l|c|cccccccc|c}
+%     \toprule
+%                & \textbf{Memory} & \textbf{CoLA} & \textbf{STS-B} & \textbf{MRPC} & \textbf{RTE} & \textbf{SST-2} & \textbf{MNLI} & \textbf{QNLI} & \textbf{QQP} & \textbf{Avg} \\
+%     \midrule
+%     Full Fine-Tuning & 747M & 62.24 & 90.92 & 91.30 & 79.42 & 94.57 & 87.18 & 92.33 & 92.28 & 86.28 \\
+%     \midrule
+%     \textbf{Natural GaLore (rank=4)} & \textbf{250M} & 61.50 & \textbf{90.80} & \textbf{92.10} & \textbf{79.50} & \textbf{94.20} & \textbf{87.05} & \textbf{92.30} & 91.15 & \textbf{86.05} \\
+%     LoRA (rank=4) & 257M & \textbf{61.38} & 90.57 & 91.07 & 78.70  & 92.89 & 86.82 & 92.18 & \textbf{91.29} & 85.61 \\
+%     \midrule
+%     \textbf{Natural GaLore (rank=8)} & \textbf{254M} & 61.70 & \textbf{90.90} & \textbf{92.25} & \textbf{79.80} & \textbf{94.40} & \textbf{87.20} & 92.35 & 91.25 & \textbf{86.23} \\
+%     LoRA (rank=8) & 264M & \textbf{61.83} & 90.80 & 91.90 & 79.06  & 93.46 & 86.94 & \textbf{92.25} & \textbf{91.22} & 85.93 \\
+%     \bottomrule
+%     \end{tabular}
+%     }
+%     \vskip -0.1in
+% \end{table}
+
+% \paragraph{Discussion}
+
+% The results indicate that Natural GaLore is effective in fine-tuning pre-trained models on downstream tasks with minimal memory overhead. By incorporating second-order information through the natural gradient, Natural GaLore enhances convergence and model performance. Notably, Natural GaLore achieves higher scores on tasks like RTE, SST-2, and MNLI compared to LoRA, which suggests that the method is particularly beneficial for tasks requiring nuanced understanding and reasoning.
+
+% Moreover, the reduced memory consumption makes Natural GaLore a practical choice for scenarios with limited computational resources. With a rank of 4, Natural GaLore reduces memory usage by approximately 66\% compared to full fine-tuning, enabling the deployment of large models on hardware with constrained memory capacity.
+
+% These experiments demonstrate the versatility and efficiency of Natural GaLore in fine-tuning language models across various natural language understanding tasks, reinforcing its applicability in real-world settings where both performance and resource utilization are critical considerations.
+
+% \vspace{-2mm}
+
+\subsection{Fine-Tuning TinyLlama 1.1B for Function Calling in Advanced Agentic Systems}
+
+Advanced Agentic Systems (AAS) require language models that can understand and generate code snippets to integrate various tools and APIs, fulfilling user queries through function calling. We utilize the TinyAgent framework, which provides an end-to-end pipeline for training and deploying task-specific LLM agents capable of function calling \citep{tinyagent}, to drive agentic systems at the edge.
+
+The primary objective is to teach language models to perform function calling effectively. Given a natural language query, the LLM agent must generate a sequence of function calls that accomplish the desired tasks. The set of possible function calls is predefined and known to the agent. The challenge lies in determining which functions to call, the appropriate arguments to pass, and the correct order of function calls, all while respecting interdependencies among the functions.
+
+\citet{llmcompiler} introduced LLMCompiler, a framework that enables language models to perform function calling by first generating a \emph{function calling plan}. This plan includes the set of functions the model needs to call along with the required arguments. The LLMCompiler then compiles this plan into an executable sequence of function calls. The critical aspect is training the model to produce a function calling plan with the correct syntax and dependencies.
+
+In preliminary experiments reported by \citet{tinyagent}, the off-the-shelf TinyLlama 1.1B (instruct-32k) model performed poorly on this task. The model generated incorrect sets of functions, hallucinated function names, failed to respect dependencies, and incorrectly passed arguments. This underperformance is expected, as the model was initially trained on datasets like SlimPajama and StarCoder, which are not specific to function calling tasks. To address this, we follow the TinyAgent framework and fine-tune the TinyLlama 1.1B model on a high-quality, curated dataset designed for function calling.
+
+\paragraph{TinyAgent Dataset}
+
+The TinyAgent dataset is a meticulously curated collection aimed at building a local agentic system for function calling on devices like Apple MacBooks for day-to-day tasks. It contains 40,000 examples of natural language queries paired with their corresponding function calling plans. The dataset is divided into 38,000 training examples, 1,000 validation examples, and 1,000 test examples. It encompasses 16 tasks, including Email, Contacts, SMS, Calendar, Notes, Reminders, File Management, Zoom Meetings, and more. Each task has predefined scripts that the model needs to generate. The dataset is intentionally challenging, requiring the model to understand dependencies between function calls and the arguments to be passed.
+
+\paragraph{Fine-Tuning Procedure}
+
+We fine-tune the TinyLlama 1.1B model on the TinyAgent dataset for three epochs using a batch size of 32. The learning rate is set to \(7 \times 10^{-5}\). After each epoch, the model is evaluated on the validation set, and the best-performing model is selected based on validation performance to be evaluated on the test set. The training objective is to maximize the accuracy of the generated function calling plans.
+
+Success is defined as the model generating the correct plan with the right set of function calls, correct arguments, and the appropriate order of function calls. Verifying the selection of the correct set of functions involves straightforward set comparison. However, ensuring the correctness of arguments and the order of function calls is more complex and requires constructing the associated Directed Acyclic Graph (DAG) to check for equality.
+
+During fine-tuning, the prompt includes descriptions of the ground truth functions as well as irrelevant functions serving as negative samples. This strategy encourages the model to learn to select the correct functions rather than merely memorizing the ground truth. Additionally, several in-context examples demonstrate how queries are translated into function calling plans. These examples are selected using a Retrieval-Augmented Generation (RAG) process based on the user's query from the training data.
+
+\paragraph{Results and Discussion}
+
+After fine-tuning, the TinyLlama 1.1B model's success rate on the test set improved significantly. Using \textbf{Natural GaLore}, the success rate increased from 12.71\% (baseline) to \textbf{83.09\%}, outperforming GPT-4-Turbo by approximately 4\%. In contrast, fine-tuning with the LoRA method resulted in a success rate of 78.89\%. These results demonstrate the effectiveness of Natural GaLore in enhancing the performance of language models on function calling tasks within advanced agentic systems.
+
+The substantial improvement underscores the benefit of incorporating second-order information through Natural GaLore during fine-tuning. By efficiently applying the inverse Empirical Fisher Information Matrix to low-rank gradients, Natural GaLore facilitates better convergence and optimization, leading to superior performance without additional memory overhead.
 
