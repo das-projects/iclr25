@@ -28,21 +28,37 @@ This loss penalizes the model more when it assigns lower probabilities to the co
 
 \subsection{Low Rank Gradient Descent}
 
-Now stochastic gradient descent algorithms are iterative, where the goal at each step is to find the optimal update direction that minimizes the loss function locally. Now in the case of GaLore, the update direction, say \(u_{k}\) is restricted to the affine subspace \(u_{k} \in {\theta_{k}} + \text{Range} \left(P_{k}^{T}\right)\), where \(\mathbf{P_{k}} \in \mathbb{R}^{r\times n}\) is the projection matrix defined by the top \(r\) left singular vectors of the gradient \(\nabla_{\theta} \Phi(\theta)\). Then the local neighborhood around this update can be define using the Taylor series expansion as:
+Now stochastic gradient descent algorithms are iterative, where the goal at each step is to find the optimal update direction that minimizes the loss function locally. Now in the case of GaLore, the update direction, say \(u_{k}\) is restricted to the affine subspace \(u_{k} \in {\theta_{k}} + \text{Range} \left(\mathbf{P}_{k}^{T}\right)\), where \(\mathbf{P}_{k} \in \mathbb{R}^{r\times n}\) is the projection matrix defined by the top \(r\) left singular vectors of the gradient \(\nabla_{\theta} \Phi(\theta)\). Then the local neighborhood around this update can be define using the Taylor series expansion as:
 
 \begin{eqnarray}
 \Phi(\theta_{k} + \mathbf{P_{k}^T u_{k}}) \approx \Phi(\theta_{k}) + \mathbf{g_{k}}^{T}\mathbf{u_{k}} + \frac{1}{2} \mathbf{u_{k}^{T} \mathbf{H_{k}}  u_{k}}
 \label{eq:taylor_series_expansion}
 \end{eqnarray}
 
-where \(\mathbf{g_{k}} = P_{k}\nabla_{\theta} \Phi(\theta_{k})\) is the low rank projected gradient and \(\mathbf{H_{k}} = P_{k}\nabla^2_{\theta} \Phi(\theta) P_{k}^T\) is the Hessian Matrix. Then the optimal direction \(u_{k}^{*}\) which minimizes the loss in this local neighborhood is given by (cite Fuji et al paper):
+where \(\mathbf{g_{k}} = P_{k}\nabla_{\theta} \Phi(\theta_{k})\) is the low rank projected gradient and \(\mathbf{H_{k}} = P_{k}\nabla^2_{\theta} \Phi(\theta) P_{k}^T\) is the Hessian matrix.
+
+However, the Hessian matrix \(\mathbf{H_{k}}\) is often computationally expensive to compute and store, especially for large-scale language models (LLMs) with billions of parameters. Fortunately, exactly under the condition that the loss function can be represented in terms of KL divergence between the true and approximated distributions i.e. the CLM objective \ref{eq:cross_entropy_loss}, then \(\mathbf{H_{k}}\) can be approximated by the Fisher Information Matrix (FIM). The FIM is defined as the expectation of the Hessian of the negative log-likelihood with respect to the data distribution:
+
+\[
+\mathbf{F_{k}} = \mathbb{E}_{x \sim p_{\text{data}}} \left[ \mathbf{H_{k}} \right]
+\]
+
+The FIM captures the curvature of the loss landscape and provides a natural metric for the optimization process. Hence is able to better adjust parameter updates according to the geometry of the parameter space. However, as the theoretical data distribution is unknown, in practice we need to estimate is using the empirical FIM \citep{martensNewPerspectiveNatural2014} defined by:
+
+\[
+\mathbf{\hat{F}}_{k} = \frac{1}{h} \sum_{k=1}^{h} \mathbf{g_{k}} \mathbf{g_{k}}^{T}
+\]
+
+where \(h\) is the history of gradients from past batches we would like to consider.
+
+Then the optimal direction \(u_{k}^{*}\) which minimizes the loss in this local neighborhood is given by (cite Fuji et al paper):
 
 \begin{eqnarray}
-\mathbf{u_{k}^{*}} &=& \mathbf{H_{k}}^{-1} \mathbf{g_{k}}
+\mathbf{u_{k}^{*}} &=& \mathbf{\hat{F}}_{k}^{-1} \mathbf{g_{k}}
 \label{eq:optimal_direction}
 \end{eqnarray}
 
- This leads to the optimal gradient descent update step:
+This leads to the optimal gradient descent update step:
 
 \[
 \theta_{k+1} = \theta_{k} - \eta \mathbf{P_{k}^T u^*_{k}}
@@ -51,35 +67,22 @@ where \(\mathbf{g_{k}} = P_{k}\nabla_{\theta} \Phi(\theta_{k})\) is the low rank
 
 for some learning rate \(\eta\).
 
-Fortunately, exactly under the condition that the loss function can be represented in terms of KL divergence between the true and approximated distributions i.e. the CLM objective \ref{eq:cross_entropy_loss}, the Hessian matrix \(\mathbf{H_{k}}\) can be approximated by the Fisher Information Matrix (FIM) \(\mathbf{F_{k}}\). The FIM is defined as the expectation of the Hessian of the negative log-likelihood with respect to the data distribution:
-
-\[
-\mathbf{F_{k}} = \mathbb{E}_{x \sim p_{\text{data}}} \left[ \mathbf{H_{k}} \right]
-\]
-
-The FIM captures the curvature of the loss landscape and provides a natural metric for the optimization process. Hence is able to better adjust parameter updates according to the geometry of the parameter space. However, as the theoretical data distribution is unknown, in practice we need to estimate is using the empirical Fisher Information Matrix \citep{martensNewPerspectiveNatural2014} defined by:
-
-\[
-\mathbf{\hat{F}_{k}} = \frac{1}{h} \sum_{k=1}^{h} \mathbf{g_{k}} \mathbf{g_{k}}^{T}
-\]
-
-where \(h\) is the history of gradients from past batches we would like to consider.
-
 Many popular stochastic optimization algorithms approximate the diagonal of the empirical FIM using second moment estimates of the gradient \(\mathbf{g_{k}}\), which when added with Polyak style parameter averaging (i.e. momentum), these methods asymptotically achieve the optimal Fisher efficient convergence rate \citep{martens2020new}.
 
-For example, in the case Adam, the optimal update step is approximated by including the momentum term \(m_{k} \in \mathbb{R}^{r\times m}\) and the learning rate \(\eta\) is scaled by the square root of the second moment estimate \(v_{k} \in \mathbb{R}^{r\times m}\). With all operations being elementwise, the update direction becomes:
+For example, in the case of Adam \citep{}, the optimal update step is approximated by including the momentum term \(m_{k} \in \mathbb{R}^{r\times m}\) and the learning rate \(\eta\) is scaled by the square root of the second moment estimate \(v_{k} \in \mathbb{R}^{r\times m}\). With all operations being elementwise, the update direction becomes:
 
 \begin{eqnarray}
     m_{k} &=& \beta_{1} m_{k-1} + (1-\beta_{1}) g_{k} \\
     v_{k} &=& \beta_{2} v_{k-1} + (1-\beta_2) g^{2}_{k}  \\
-    u^*_{k} &=& m_{k} / \sqrt{v_{k} + \epsilon}
+    \mathbf{u_{k}^{*}} &=& m_{k} / \sqrt{v_{k} + \epsilon}
+    \label{eq:adam_update}
 \end{eqnarray}
 
-This method is memory efficient as it only requires storing the projection matrix and the costly optimizer states \(\left(g_{k}, m_{k}, v_{k}\right)\) are now significantly reduced by a factor of \(\frac{n}{r}\), where \(r\) the rank, can be chosen based on memory limitations.
+This update when applied to \ref{eq:gradient_descent_update}, gives the GaLore optimization algorithm, which is memory efficient as it only requires storing the projection matrix and the costly optimizer states \(\left(g_{k}, m_{k}, v_{k}\right)\) are now significantly reduced by a factor of \(\frac{n}{r}\), where \(r\) the rank, can be chosen based on memory limitations.
 
 \subsection{\lowrank and Fisher Efficiency}
 
-However, the performance of GaLore is still not on par with the Adam or AdamW optimization on the original space. To bridge this gap, we propose \lowrank, which uses the full empirical Fisher Information matrix, thereby incorporating the missing second-order interaction information in the optimization process.
+However, the performance of GaLore is still not on par with the Adam optimization on the original space. To bridge this gap, we propose \lowrank, which uses the full empirical FIM, thereby incorporating the missing second-order interaction information in the optimization process.
 
 As we will now argue, that this leads to a much more favorable dependence on the starting point, which means that they can make much more progress given a limited iteration budget. Further, when using a decaying learning rate schedule like with AdamW (reference), the asymptotic convergence rate can be faster by a large constant factor \citep{martens2020new}.
 
@@ -88,320 +91,58 @@ Natural gradient descent is known \citep{martens2020new} to be \textit{Fisher Ef
 For \lowrank, the gradient descent update \ref{eq:gradient_descent_update} leads to a sequence of estimates \( \theta_{k} \) whose variance satisfies \citep{amariNaturalGradientWorks1998}:
 
 \begin{eqnarray}
-\text{Var}[\theta_{k}] = \frac{1}{mk} \mathbf{F_{k}} ^{-1}(\theta_{k}^*) + \mathcal{O}\left(\frac{1}{k^2}\right)
+\text{Var}[\theta_{k}] = \frac{1}{mk} \mathbf{F}_{k}^{-1}(\theta_{k}^*) + \mathcal{O}\left(\frac{1}{k^2}\right)
+\label{eq:variance_reduction}
 \end{eqnarray}
 
 which is asymptotically the smallest possible variance matrix, i.e. the Cramér-Rao lower bound, that any unbiased estimator computed from \(mk\) training samples can have, with \(m\) being the batch size.
 
 Here \(\theta_{k}^*\) is the local optima, in the neighborhood defined by the Taylor series expansion \ref{eq:taylor_series_expansion} around the update direction. This is an important caveat, as the guarantee is only for local convergence, in a convex neighborhood. As the loss function is non-convex, the property can not be stated to hold for the global optimum.
 
-Now the result relies on the exact computation of the Fisher Information Matrix \( F_{k}(\theta_{k}) \) using the entire data distribution. This is obviously impractical and hence we use the empirical Fisher Information Matrix \(\hat{F_{k}}\) instead. The Fisher efficiency guarantee is then only approximately satisfied.
-
-However, even in that case we get a variance reduction in the gradient estimates. This can lead to faster convergence and better optimization performance in the early stages of training large-scale models, making it especially valuable for training with limited iteration budget.
+Now the result also relies on the computation of the exact FIM \( \mathbf{F}_{k}(\theta_{k}) \) using the entire data distribution. This is obviously impractical and hence we use the empirical FIM \(\mathbf{\hat{F}_{k}}\) instead. The Fisher efficiency guarantee is then only approximately satisfied. However, even in that case we get a variance reduction in the gradient estimates. This can lead to faster convergence and better optimization performance in the early stages of training large-scale models, making it especially valuable for training with limited iteration budget.
 
 Further, incorporating second-order information through the empirical FIM allows the optimizer to account for the curvature of the loss landscape. This enables natural gradient descent to take more informed steps compared to standard gradient descent, potentially escaping flat regions or navigating steep ravines more effectively.
 
-In \citep{martens2020new} it was shown that the expected update direction can be expressed as a sum of two terms, one that scales as \(\mathcal{O}(1/k)\), which is independent of the starting point and one that scales as \(\mathcal{O}(1/k^2)\), which is dependent on the starting point. In the case of using Polyak averaging (i.e. momentum) the first term becomes independent of the choice of FIM estimator and the standard stochastic gradient descent step becomes Fisher efficient.
+In \citep{martens2020new} it was shown that the expected update direction can be expressed as a sum of two terms, one that scales as \(\mathcal{O}(1/k)\), which is independent of the starting point and another that scales as \(\mathcal{O}(1/k^2)\), which is dependent on the starting point. In the case of using Polyak averaging (i.e. momentum) the first term becomes independent of the choice of FIM estimator and the standard stochastic gradient descent step becomes Fisher efficient. However, using the empirical FIM estimator can significantly reduce the constant factor associated with the starting point dependent second term, which can lead to practical performance gains in finite iteration regimes (despite being negligible for large \(k\)).
 
-However, using the empirical FIM estimator can significantly reduce the constant factor associated with the starting point dependent second term, which can lead to practical performance gains in finite iteration regimes (despite being negligible for large \(k\)).
-
-Finally, the proof \citep{amariNaturalGradientWorks1998} also assumes that the model is capable of perfectly capturing the true data distribution—a condition known as \emph{realizability}. However, with growing size of LLMs, this assumption is likely to hold, and thereby leading to the guarantee being satisfied.
+Finally, the Fisher efficiency result also assumes that the model is capable of perfectly capturing the true data distribution—a condition known as \emph{realizability}. However, with growing size of LLMs, this assumption is likely to hold, and thereby leading to the guarantee being satisfied.
 
 In conclusion, while the theoretical Fisher efficiency of natural gradient descent comes with significant assumptions that may not hold exactly, in practical low resource settings the method offers substantial advantages when the number of iterations is limited. This makes \lowrank{} a promising approach for training large-scale language models under memory constraints.
 
 \subsection{Algorithm Overview}
 
-\begin{enumerate}
-    \item \textbf{Low-Rank Gradient Projection}
-    \item \textbf{Gradient History Buffer Maintenance}
-    \item \textbf{FIM Approximation Using Gradient History}
-    \item \textbf{Natural Gradient Computation via Woodbury Identity}
-    \item \textbf{Efficient Solution Using Cholesky Decomposition}
-\end{enumerate}
-
-We explain each step in detail below.
-
-\paragraph{Step 1: Low-Rank Gradient Projection}
+Our \lowrank{} algorithm is designed to efficiently apply the inverse Empirical Fisher Information Matrix to low-rank gradients using the Woodbury Identity. Most of the steps in the algorithm are similar to GaLore, with the key difference being the incorporation of the natural gradient transform. The outline of the GaLore algorithm is as follows:
 
 % \input{algos/code_box.tex}
-% \input{algos/project.tex}
 
-Given a full-rank gradient tensor $\mathbf{g} \in \mathbb{R}^{n_1 \times n_2 \times \cdots \times n_d}$, we project it onto a low-rank subspace using Tucker decomposition \citep{tuckerMathematicalNotesThree1966}. The Tucker decomposition approximates $\mathbf{g}$ as:
-
-\[
-\mathbf{g} \approx \mathcal{G} = \mathcal{C} \times_1 \mathbf{U}^{(1)} \times_2 \mathbf{U}^{(2)} \times_3 \cdots \times_d \mathbf{U}^{(d)},
-\]
-
-where:
-
-\begin{itemize}
-    \item $\mathcal{C} \in \mathbb{R}^{r_1 \times r_2 \times \cdots \times r_d}$ is the core tensor capturing the interaction between different modes.
-    \item $\mathbf{U}^{(i)} \in \mathbb{R}^{n_i \times r_i}$ are the factor matrices (often orthogonal), representing the principal components along each mode.
-    \item $\times_i$ denotes the mode-$i$ tensor-matrix product.
-    \item $r_i$ is the rank along mode $i$, with $r_i \ll n_i$.
-\end{itemize}
-
-The transformed low-rank gradient is obtained by projecting $\mathbf{g}$ onto the subspace spanned by $\{\mathbf{U}^{(i)}\}$:
+In order to implement the natural gradient transform, we need to compute the inverse of the Empirical Fisher Information Matrix and apply it to the gradient \(\mathbf{g_{k}}\). This can be done using the Woodbury Identity, which allows us to efficiently compute the inverse of a matrix of the form \(A + UBU^T\). The Woodbury Identity states that:
 
 \[
-\mathbf{g}_{\text{low}} = \text{Transform}(\mathbf{g}) = \mathbf{g} \times_1 (\mathbf{U}^{(1)})^\top \times_2 (\mathbf{U}^{(2)})^\top \times_3 \cdots \times_d (\mathbf{U}^{(d)})^\top.
+(A + UBU^T)^{-1} = A^{-1} - A^{-1}U(B^{-1} + U^TA^{-1}U)^{-1}U^TA^{-1}
 \]
 
-This results in a compact representation of the gradient in the low-rank subspace.
+Now if we choose
 
-\paragraph{Step 2: Gradient History Buffer Maintenance}
-
-\input{algos/natural_gradient.tex}
-
-To capture local curvature information, we maintain a buffer of recent transformed gradients. Let $\mathbf{g}_t$ be the transformed low-rank gradient at iteration $t$, flattened into a vector:
-
-\[
-\mathbf{g}_t \in \mathbb{R}^{k}, \quad \text{where } k = r_1 r_2 \cdots r_d.
-\]
-
-We store the recent $s$ gradients in the matrix $\mathbf{G}$:
-
-\[
-\mathbf{G} = [\mathbf{g}_{t - s + 1}, \mathbf{g}_{t - s + 2}, \dots, \mathbf{g}_t] \in \mathbb{R}^{k \times s}.
-\]
-
-This gradient history captures the directions of recent updates, which are informative for approximating the FIM.
-
-\paragraph{Step 3: Approximating the Fisher Information Matrix}
-
-We approximate the Fisher Information Matrix within the low-rank subspace using the outer products of the stored gradients:
-
-\[
-\mathbf{F} = \lambda \mathbf{I}_k + \mathbf{G} \mathbf{G}^\top,
-\]
-
-where:
-
-\begin{itemize}
-    \item $\lambda > 0$ is a damping (regularization) term to ensure numerical stability.
-    \item $\mathbf{I}_k$ is the $k \times k$ identity matrix.
-\end{itemize}
-
-This approximation is motivated by the empirical Fisher Information Matrix, which can be estimated using gradients observed during training \citep{martensNewPerspectiveNatural2014}.
-
-\paragraph{Step 4: Computing the Natural Gradient via Woodbury Identity}
-
-Computing $\mathbf{F}^{-1}$ directly is computationally expensive for large $k$. We employ the \textbf{Woodbury identity} to compute the inverse efficiently:
-
-\[
-\mathbf{F}^{-1} \mathbf{g}_t = \frac{1}{\lambda} \left( \mathbf{g}_t - \mathbf{G} \left( \lambda \mathbf{I}_s + \mathbf{G}^\top \mathbf{G} \right)^{-1} \mathbf{G}^\top \mathbf{g}_t \right).
-\]
-
-Defining:
-
-\begin{itemize}
-    \item $\mathbf{S} = \lambda \mathbf{I}_s + \mathbf{G}^\top \mathbf{G} \in \mathbb{R}^{s \times s}$.
-    \item $\mathbf{y} = \mathbf{G}^\top \mathbf{g}_t \in \mathbb{R}^s$.
-\end{itemize}
-
-We compute the natural gradient as:
-
-\begin{enumerate}
-    \item Compute $\mathbf{S} = \lambda \mathbf{I}_s + \mathbf{G}^\top \mathbf{G}$.
-    \item Solve $\mathbf{S} \mathbf{z} = \mathbf{y}$ for $\mathbf{z}$.
-    \item Compute $\tilde{\mathbf{g}}_t = \dfrac{1}{\lambda} \left( \mathbf{g}_t - \mathbf{G} \mathbf{z} \right)$.
-\end{enumerate}
-
-This avoids inverting the large matrix $\mathbf{F}$ directly, reducing computational complexity.
-
-\paragraph{Step 5: Efficient Solution Using Cholesky Decomposition}
-
-To solve the linear system $\mathbf{S} \mathbf{z} = \mathbf{y}$ efficiently, we use \textbf{Cholesky decomposition}:
-
-\begin{enumerate}
-    \item Compute the Cholesky factorization of $\mathbf{S}$:
-
-    \[
-    \mathbf{S} = \mathbf{L} \mathbf{L}^\top,
-    \]
-
-    where $\mathbf{L}$ is a lower triangular matrix.
-
-    \item Solve for $\mathbf{u}$ via forward substitution:
-
-    \[
-    \mathbf{L} \mathbf{u} = \mathbf{y}.
-    \]
-
-    \item Solve for $\mathbf{z}$ via backward substitution:
-
-    \[
-    \mathbf{L}^\top \mathbf{z} = \mathbf{u}.
-    \]
-\end{enumerate}
-
-Cholesky decomposition is efficient for symmetric positive-definite matrices and numerically stable.
-
-\paragraph{Step 6: Updating the Model Parameters}
-
-\input{algos/project_back.tex}
-
-Finally, we use the natural gradient $\tilde{\mathbf{g}}_t$ to update the model parameters in the low-rank subspace. The full-rank update can be reconstructed using the inverse transformation if necessary.
-
-\subsection{Algorithm Summary}
-
-At each iteration $t$, the algorithm proceeds as follows:
-
-\begin{enumerate}
-    \item \textbf{Project the Full-Rank Gradient}:
-
-    \begin{itemize}
-        \item Compute the low-rank transformed gradient $\mathbf{g}_t$ using the current factor matrices $\{\mathbf{U}^{(i)}\}$.
-    \end{itemize}
-
-    \item \textbf{Update Gradient History}:
-
-    \begin{itemize}
-        \item If the history buffer is full, remove the oldest gradient.
-        \item Append $\mathbf{g}_t$ to the history buffer $\mathbf{G}$.
-    \end{itemize}
-
-    \item \textbf{Compute Intermediate Quantities}:
-
-    \begin{itemize}
-        \item $\mathbf{S} = \lambda \mathbf{I}_s + \mathbf{G}^\top \mathbf{G}$.
-        \item $\mathbf{y} = \mathbf{G}^\top \mathbf{g}_t$.
-    \end{itemize}
-
-    \item \textbf{Solve for $\mathbf{z}$}:
-
-    \begin{itemize}
-        \item Use Cholesky decomposition to solve $\mathbf{S} \mathbf{z} = \mathbf{y}$.
-    \end{itemize}
-
-    \item \textbf{Compute the Natural Gradient}:
-
-    \begin{itemize}
-        \item $\tilde{\mathbf{g}}_t = \dfrac{1}{\lambda} \left( \mathbf{g}_t - \mathbf{G} \mathbf{z} \right)$.
-    \end{itemize}
-
-    \item \textbf{Update the Parameters}:
-
-    \begin{itemize}
-        \item Use $\tilde{\mathbf{g}}_t$ to update the model parameters in the low-rank subspace.
-        \item Optionally, reconstruct the full gradient if necessary for parameter updates.
-    \end{itemize}
-\end{enumerate}
-
-\subsection{Implementation Details}
-
-\subsubsection{Avoiding Large Matrix Inversions}
-
-By utilizing the Woodbury identity, we reduce the inversion of a large $k \times k$ matrix to the inversion of a much smaller $s \times s$ matrix, where $s$ (the history size) is typically small (e.g., $s = 10$). This makes the computation tractable even for large models.
-
-\subsubsection{Computational Efficiency}
-
-\begin{itemize}
-    \item \textbf{Matrix-Vector Products}: We prioritize matrix-vector operations over matrix-matrix multiplications to enhance computational efficiency on GPUs.
-    \item \textbf{GPU Acceleration}: All computations are performed on GPUs to leverage parallel processing capabilities and minimize data transfer overhead.
-    \item \textbf{Optimized Linear Algebra Libraries}: We employ optimized GPU routines (e.g., cuBLAS, cuSOLVER) for linear algebra operations like matrix multiplication and Cholesky decomposition.
-\end{itemize}
-
-\subsubsection{Memory Efficiency}
-
-The additional memory overhead is minimal due to:
-
-\begin{itemize}
-    \item \textbf{Small History Size}: Keeping $s$ small limits the size of $\mathbf{G}$ and related matrices.
-    \item \textbf{Low-Rank Representation}: Operating in the low-rank subspace significantly reduces the dimensionality of the gradients and the FIM approximation.
-\end{itemize}
-
-\subsubsection{Numerical Stability}
-
-The damping term $\lambda$ ensures that $\mathbf{S}$ remains positive definite, which is crucial for the stability of Cholesky decomposition. In practice, $\lambda$ can be treated as a hyperparameter, often set to a small positive value.
-
-\subsubsection{Hyperparameter Selection}
-
-Key hyperparameters include:
-
-\begin{itemize}
-    \item \textbf{Rank Parameters} $r_i$: Determines the dimensionality reduction in each mode; chosen based on a trade-off between computational cost and approximation accuracy.
-    \item \textbf{History Size} $s$: Controls the amount of curvature information captured; typically small to balance memory usage and performance.
-    \item \textbf{Damping Term} $\lambda$: Affects numerical stability and convergence; may require tuning for different models or datasets.
-\end{itemize}
-
-\subsection{Theoretical Justification}
-
-Our method leverages the observation that gradients in deep learning often reside in a low-dimensional subspace due to the inherent redundancy in neural network parameterizations and correlations in the data \citep{gurariReducingTrainingTime2021}. By maintaining a history of low-rank gradients, we capture the principal components that approximate the local curvature of the loss surface.
-
-Incorporating second-order information via the inverse FIM improves convergence rates, especially in regimes with limited iteration budgets. The use of the Woodbury identity allows us to efficiently compute the natural gradient in this low-rank subspace, effectively approximating the benefits of full natural gradient methods without their prohibitive computational costs.
-
-\subsection{Empirical Evaluation}
-
-We validate the effectiveness of Natural GaLore through empirical pre-training on LLaMA models with 60M, 300M, and 1.1B parameters using the C4 dataset \citep{raffelExploringLimitsTransfer2020}. Our experiments demonstrate that:
-
-\begin{itemize}
-    \item \textbf{Improved Convergence}: Natural GaLore achieves significantly lower perplexity compared to GaLore, indicating faster convergence.
-    \item \textbf{Memory Efficiency}: The method incurs no additional memory overhead compared to GaLore, maintaining the advantages of low memory usage.
-    \item \textbf{Performance Parity with Standard Optimizers}: The gap between our method and standard optimizers like Adam or AdamW is narrowed, demonstrating competitive performance.
-\end{itemize}
-
-\subsection{Conclusion}
-
-We have introduced Natural GaLore, an efficient online natural gradient algorithm that operates in a low-rank subspace of the gradient space. By approximating the inverse Empirical Fisher Information Matrix using the Woodbury identity and maintaining a history of low-rank gradients, we incorporate second-order information into the optimization process without significant computational or memory overhead. Our method addresses the limitations of GaLore by improving convergence rates and achieving performance closer to that of standard optimizers, making it suitable for training large-scale language models under memory constraints.
-
-
-\section{\lowrank: Gradient Low-Rank Projection}
-\subsection{Background}
-\input{figures/framework.tex}
-\textbf{Regular full-rank training.} At time step $t$, $G_t = -\nabla_W \phi_t(W_t) \in \mathbb{R}^{m \times n}$ is the backpropagated (negative) gradient matrix. Then the regular pre-training weight update can be written down as follows ($\eta$ is the learning rate):
-\begin{equation}
-    W_T = W_0 + \eta \sum_{t=0}^{T-1} \tilde G_{t} = W_0 + \eta\sum_{t=0}^{T-1} \rho_t(G_t)
-\end{equation}
-where $\tilde G_t$ is the final processed gradient to be added to the weight matrix and $\rho_t$ is an entry-wise stateful gradient regularizer (e.g., Adam). The state of $\rho_t$ can be memory-intensive. For example, for Adam, we need $M,V \in \mathbb{R}^{m\times n}$ to regularize the gradient $G_t$ into $\tilde G_{t}$:
 \begin{eqnarray}
-    M_t &=& \beta_1 M_{t-1} + (1-\beta_1) G_t \\
-    V_t &=& \beta_2 V_{t-1} + (1-\beta_2) G^2_t  \\
-    \tilde G_t &=& M_t / \sqrt{V_t + \epsilon}
+    \mathbf{\hat{F}}_{k} &=& \lambda I + GG^{T} \\
+    A &=& \lambda I \\
+    U &=& G \\
+    B &=& I \\
 \end{eqnarray}
-Here $G_t^2$ and $M_t / \sqrt{V_t + \epsilon}$ means element-wise multiplication and division. $\eta$ is the learning rate. Together with $W\in \mathbb{R}^{m\times n}$, this takes $3mn$ memory.
 
-From the theoretical analysis above, we can see that for batch size $N$, the gradient $G$ has certain structures: $G = \frac{1}{N}\sum_{i=1}^N (A_i - B_i W C_i)$ for input-dependent matrix $A_i$, Positive Semi-definite (PSD) matrices $B_i$ and $C_i$. In the following, we prove that such a gradient will become low-rank during training in certain conditions:
+where \(G = [\operatorname{vec}(\mathbf{g_{k}}), \operatorname{vec}(\mathbf{g_{k-1}}),\ldots, \operatorname{vec}(\mathbf{g_{k-s}})]\) is the stacked gradient matrix over the past \(s \approx 20\) gradients and \(\lambda\) is a small constant for Tikhonov regularization, then the inverse of the empirical FIM applied to the gradient \(\mathbf{g_{k}}\) i.e. the natural gradient \(\mathbf{\tilde{g}}_{k} = \mathbf{\hat{F}}_{k}^{-1}\mathbf{g_{k}}\) can be computed as:
 
-\def\sr{\mathrm{sr}}
+\begin{eqnarray}
+    \mathbf{\tilde{g}}_{k} = \frac{1}{\lambda}\mathbf{g_{k}} - \frac{1}{\lambda^{2}}G\left(I + \frac{1}{\lambda}G^{T}G\right)^{-1}G^{T}\mathbf{g_{k}}
+\end{eqnarray}
 
-\begin{restatable}[Gradient becomes low-rank during training]{lemma}{gradientlowrank}
-\label{lemma:gradientlowrank}
-    Suppose the gradient follows the parametric form:
-    \begin{eqnarray}
-          G_t=\frac{1}{N}\sum_{i=1}^N (A_i-B_i W_t C_i)\label{eq:constantgradientcoeff}
-    \end{eqnarray}
-    with constant $A_i$, PSD matrices $B_i$ and $C_i$ after $t \ge t_0$. We study vanilla SGD weight update: $W_t=W_{t-1}+\eta G_{t-1}$. Let $S := \frac{1}{N}\sum_{i=1}^N C_i \otimes B_i$ and $\lambda_1 < \lambda_2$ its two smallest distinct eigenvalues. Then the stable rank $\sr(G_t)$ satisfies:
-    \begin{equation}
-        \sr(G_t) \le \sr(\gzeroproj)\!+\!\left(\frac{1\!-\!\eta \lambda_2}{1\!-\!\eta \lambda_1}\right)^{2(t-t_0)} \frac{\|G_0\!-\!\gzeroproj\|_F^2}{\|\gzeroproj\|_2^2} \label{eq:stable-rank-decay}
-    \end{equation}
-    where $\gzeroproj$ is the projection of $G_{t_0}$ onto the minimal eigenspace $\cV_1$ of $S$ corresponding to $\lambda_1$.
-\end{restatable}
+To compute the above formula efficiently, let \(S = I + \frac{1}{\lambda}G^{T}G \in \mathbb{R}^{s\times s}\) and \(y = G^T\mathbf{g_{k}}\). The idea is to use Cholesky decomposition to solve for \(z\) in
+\begin{eqnarray}
+S z = y
+\end{eqnarray}
+which can be done in \(\mathcal{O}(s^2)\) time. Then the natural gradient estimate can be computed using only matrix vector products, which is very memory efficient:
+\begin{eqnarray}
+    \mathbf{\tilde{g}}_{k} = \frac{1}{\lambda}\mathbf{g_{k}} - \frac{1}{\lambda^{2}}Gz
+\end{eqnarray}
 
-In practice, the constant assumption can approximately hold for some time, in which the second term in Eq.~\ref{eq:stable-rank-decay} goes to zero exponentially and the stable rank of $G_t$ goes down, yielding low-rank gradient $G_t$. The final stable rank is determined by $\sr(\gzeroproj)$, which is estimated to be low-rank by the following:
-\begin{restatable}[Low-rank $G_t$]{corollary}{lowrankmid}
-\label{co:low-rank-mid}
-If the gradient takes the parametric form $G_t = \frac{1}{N}\sum_{i=1}^N (\va_i - B_i W_t \vf_i)\vf_i^\top$ with all $B_i$ full-rank, and $N' := \rank(\{\vf_i\}) < n$, then $\sr(\gzeroproj) \le n - N'$ and thus $\sr(G_t) \le n/2$ for large $t$.
-\end{restatable}
-
-\textbf{Transformers.} For Transformers, we can also separately prove that the weight gradient of the lower layer (i.e., \emph{project-up}) weight of feed forward network (FFN) becomes low rank over time, using the JoMA framework~\cite{tian2023joma}. Please check Appendix (Sec.~\ref{sec:transformer-low-rank}) for details.
-
-\section{\lowrank{} for Memory-Efficient Training}
-For a complex optimization problem such as LLM pre-training, it may be difficult to capture the entire gradient trajectory with a single low-rank subspace. One reason is that the principal subspaces of $B_t$ and $C_t$ (and thus $G_t$) may change over time. In fact, if we keep the same projection $P$ and $Q$, then the learned weights will only grow along these subspaces, which is not longer full-parameter training. Fortunately, for this, \lowrank{} can switch subspaces during training and learn full-rank weights without increasing the memory footprint.
-
-\textbf{Reducing memory footprint of gradient statistics.} \lowrank{} significantly reduces the memory cost of optimizer that heavily rely on component-wise gradient statistics, such as Adam \citep{kingmaAdamMethodStochastic2014}.
-
-\subsection{Combining with Existing Techniques}
-
-\lowrank{} is compatible with existing memory-efficient optimization techniques. For example, \lowrank{} can be combined with gradient checkpointing \citep{chenTrainingDeepNets2016} to further reduce memory usage.
-
-
-\subsection{Hyperparameters of \lowrank{}}
-\label{sec:lowrank-hyperparams}
-In addition to Adam's original hyperparameters, \lowrank{} only introduces very few additional hyperparameters: the rank $r$ which is also present in LoRA, the subspace change frequency $T$ (see Sec.~\ref{sec:composition-subspace}), and the scale factor $\alpha$.
-
-Scale factor $\alpha$ controls the strength of the low-rank update, which is similar to the scale factor $\alpha/r$ appended to the low-rank adaptor in \citet{huLoRALowRankAdaptation2021}.
-We note that the $\alpha$ does not depend on the rank $r$ in our case.
-This is because, when $r$ is small during pre-training, $\alpha/r$ significantly affects the convergence rate, unlike fine-tuning.
-
-\input{tables/lora_compare.tex}
+This natural gradient estimate can then be applied to the Adam optimizer \ref{eq:adam_update} and we update the model parameters, the same way as in GaLore. This allows us to efficiently incorporate second-order information into the optimization process, leading to faster convergence and better performance, especially in low-resource settings.

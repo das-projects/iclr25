@@ -1,11 +1,8 @@
 \section{Experiments}
 
-\input{tables/lora_comapre_llama.tex}
-\input{tables/compare_downstreaming.tex}
 We evaluate \lowrank{} on both pre-training and fine-tuning of LLMs. All experiments run on NVIDIA A100 GPUs.\vspace{-2mm}
 
-\input{tables/7b_eval.tex} 
-\input{figures/compare_optimizer.tex}
+
 \paragraph{Pre-training on C4.}
 To evaluate its performance, we apply \lowrank{} to train LLaMA-based large language models on the C4 dataset. 
 C4 dataset is a colossal, cleaned version of Common Crawl's web crawl corpus, which is mainly intended to pre-train language models and word representations \citep{raffelExploringLimitsTransfer2023}.
@@ -18,9 +15,11 @@ The details of our task setups and hyperparameters are provided in the appendix.
 \paragraph{Fine-tuning on GLUE tasks.}
 GLUE is a benchmark for evaluating the performance of NLP models on a variety of tasks, including sentiment analysis, question answering, and textual entailment \citep{wangGLUEMultiTaskBenchmark2019}.
 We use GLUE tasks to benchmark \lowrank{} against LoRA for memory-efficient fine-tuning.
-
+\input{tables/7b_eval.tex} 
+\input{figures/compare_optimizer.tex}
 \subsection{Comparison with Existing Low-Rank Methods}
-
+\input{tables/lora_comapre_llama.tex}
+\input{tables/compare_downstreaming.tex}
 We first compare \lowrank{} with existing low-rank methods using Adam optimizer across a range of model sizes.
 \paragraph{Full-Rank}
 Our baseline method that applies Adam optimizer with full-rank weights and optimizer states.
