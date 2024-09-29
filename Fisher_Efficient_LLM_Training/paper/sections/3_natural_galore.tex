@@ -57,7 +57,7 @@ Fortunately, exactly under the condition that the loss function can be represent
 \mathbf{F_{k}} = \mathbb{E}_{x \sim p_{\text{data}}} \left[ \mathbf{H_{k}} \right]
 \]
 
-The FIM captures the curvature of the loss landscape and provides a natural metric for the optimization process. However, as the theoretical data distribution is unknown, in practice we need to estimate is using the empirical Fisher Information Matrix \citep{martensNewPerspectiveNatural2014} defined by:
+The FIM captures the curvature of the loss landscape and provides a natural metric for the optimization process. Hence is able to better adjust parameter updates according to the geometry of the parameter space. However, as the theoretical data distribution is unknown, in practice we need to estimate is using the empirical Fisher Information Matrix \citep{martensNewPerspectiveNatural2014} defined by:
 
 \[
 \mathbf{\hat{F}_{k}} = \frac{1}{h} \sum_{k=1}^{h} \mathbf{g_{k}} \mathbf{g_{k}}^{T}
@@ -77,50 +77,39 @@ For example, in the case Adam, the optimal update step is approximated by includ
 
 This method is memory efficient as it only requires storing the projection matrix and the costly optimizer states \(\left(g_{k}, m_{k}, v_{k}\right)\) are now significantly reduced by a factor of \(\frac{n}{r}\), where \(r\) the rank, can be chosen based on memory limitations.
 
-% \input{algos/code_box.tex}
-
-However, the performance of GaLore is still not on par with the Adam or AdamW optimization on the original space. To bridge this gap, we propose \lowrank, which uses the full empirical Fisher Information matrix, thereby incorporating the missing second-order interaction information in the optimization process. This leads to a much more favorable dependence on the starting point, which means that they can make much more progress given a limited iteration budget. Further, when using a decaying learning rate schedule like with AdamW (reference), the asymptotic convergence rate can by faster by a large constant factor.
-
 \subsection{\lowrank and Fisher Efficiency}
 
-Natural gradient methods are optimization algorithms that adjust parameter updates according to the geometry of the parameter space, leading to faster convergence compared to standard gradient descent \citep{amariNaturalGradientWorks1998}. They precondition the gradient using the inverse of the Fisher Information Matrix (FIM), effectively incorporating second-order information about the loss landscape.
+However, the performance of GaLore is still not on par with the Adam or AdamW optimization on the original space. To bridge this gap, we propose \lowrank, which uses the full empirical Fisher Information matrix, thereby incorporating the missing second-order interaction information in the optimization process.
 
-The key difference between GaLore and \lowrank is that the gradient update using popular optimizers like Adam, AdamW, etc is applied to the preconditioned gradient:
-\[
-\tilde{g} = \mathbf{F}^{-1} \mathbf{g}
-\]
-where \( F(\theta^*) \) is the Fisher Information Matrix, leaving the choice of the projection matrix $\mathbf{P}$ exactly the same.
+As we will now argue, that this leads to a much more favorable dependence on the starting point, which means that they can make much more progress given a limited iteration budget. Further, when using a decaying learning rate schedule like with AdamW (reference), the asymptotic convergence rate can be faster by a large constant factor \citep{martens2020new}.
 
-Fortunately, natural gradient descent is known \citep{martens2020new} for its desirable property of being \textit{Fisher Efficient}, exactly under the condition that the loss function can be represented in terms of KL divergence between the true and approximated distributions i.e. the CLM objective \ref{eq:cross_entropy_loss}. Fisher efficiency means that the natural gradient estimator achieves the lowest possible variance among all unbiased estimators of the gradient.
+Natural gradient descent is known \citep{martens2020new} to be \textit{Fisher Efficient}, exactly for our loss function \ref{eq:cross_entropy_loss}. Fisher efficiency means that the natural gradient estimator achieves the lowest possible variance among all unbiased estimators of the gradient.
 
-For \lowrank, the gradient descent update \ref{eq:gradient_descent_update} leads to a sequence of estimates \( \theta_k \) whose variance satisfies \citep{amariNaturalGradientWorks1998}:
-\[
-\text{Var}[\theta_{k}] = \frac{1}{mk} F^{-1}(\theta_{k}^*) + \mathcal{O}\left(\frac{1}{k^2}\right)
-\]
-which is asymptotically the smallest possible variance matrix, i.e. the Cramér-Rao lower bound, that any unbiased estimator computed from \(mk\) training samples can have, with \(m\) as the batch size. Here \(\theta_{k}^*\) is the local optima, in the neighborhood defined by the Taylor series expansion around the update. (See more)
+For \lowrank, the gradient descent update \ref{eq:gradient_descent_update} leads to a sequence of estimates \( \theta_{k} \) whose variance satisfies \citep{amariNaturalGradientWorks1998}:
 
-Although natural gradient descent is often considered the optimal optimization method in stochastic settings due to its Fisher efficiency, several significant caveats and conditions accompany this result.
+\begin{eqnarray}
+\text{Var}[\theta_{k}] = \frac{1}{mk} \mathbf{F_{k}} ^{-1}(\theta_{k}^*) + \mathcal{O}\left(\frac{1}{k^2}\right)
+\end{eqnarray}
 
-First, the proof of Fisher efficiency assumes that the parameter updates converge to the global optimum \( \theta^* \). While this assumption holds in convex optimization problems, it does not generally hold for non-convex objectives commonly encountered in deep neural networks. In practice, convergence may only reach a local optimum, and the Fisher efficiency property may only hold approximately, if at all. Change this paragraph to reflect that at each step we doing a local optimization.
+which is asymptotically the smallest possible variance matrix, i.e. the Cramér-Rao lower bound, that any unbiased estimator computed from \(mk\) training samples can have, with \(m\) being the batch size.
 
-Second, the result relies on the exact computation of the Fisher Information Matrix \( F(\theta) \) using the entire data distribution. In large-scale machine learning tasks, computing \( F(\theta) \) over the entire training set is computationally infeasible. Approximating \( F(\theta) \) using mini-batches or running estimates introduces errors that may invalidate the Fisher efficiency guarantee.
+Here \(\theta_{k}^*\) is the local optima, in the neighborhood defined by the Taylor series expansion \ref{eq:taylor_series_expansion} around the update direction. This is an important caveat, as the guarantee is only for local convergence, in a convex neighborhood. As the loss function is non-convex, the property can not be stated to hold for the global optimum.
 
-Third, the Fisher efficiency result focuses on the convergence of the parameter estimates \( \theta_k \) in terms of their variance, rather than directly addressing the convergence of the objective function value \( h(\theta_k) \). While reducing variance in parameter estimates is beneficial, practitioners are often more interested in the optimization of the loss function itself. The relationship between parameter variance and loss convergence is not straightforward and may depend on additional assumptions. not important.
+Now the result relies on the exact computation of the Fisher Information Matrix \( F_{k}(\theta_{k}) \) using the entire data distribution. This is obviously impractical and hence we use the empirical Fisher Information Matrix \(\hat{F_{k}}\) instead. The Fisher efficiency guarantee is then only approximately satisfied.
 
-Finally, the proof assumes that the model is capable of perfectly capturing the true data distribution—a condition known as \emph{realizability}. This means that at the optimal parameters \( \theta^* \), the model distribution matches the data distribution exactly. In practice, models may be misspecified or lack sufficient capacity to fully represent the true data distribution, violating this assumption and potentially invalidating the Fisher efficiency result. Bigger LLMs are more likely to be realizable.
+However, even in that case we get a variance reduction in the gradient estimates. This can lead to faster convergence and better optimization performance in the early stages of training large-scale models, making it especially valuable for training with limited iteration budget.
 
-Despite these caveats, natural gradient descent remains a valuable optimization method, especially when the iteration budget is limited. There are several reasons for this:
+Further, incorporating second-order information through the empirical FIM allows the optimizer to account for the curvature of the loss landscape. This enables natural gradient descent to take more informed steps compared to standard gradient descent, potentially escaping flat regions or navigating steep ravines more effectively.
 
-First, natural gradient descent can offer \textbf{improved convergence rates in practice}. Even if the asymptotic guarantees are compromised due to the aforementioned conditions, incorporating second-order information through the Fisher Information Matrix—or its approximation—allows the optimizer to account for the curvature of the loss landscape. This enables natural gradient descent to take more informed steps compared to standard gradient descent, potentially escaping flat regions or navigating steep ravines more effectively.
+In \citep{martens2020new} it was shown that the expected update direction can be expressed as a sum of two terms, one that scales as \(\mathcal{O}(1/k)\), which is independent of the starting point and one that scales as \(\mathcal{O}(1/k^2)\), which is dependent on the starting point. In the case of using Polyak averaging (i.e. momentum) the first term becomes independent of the choice of FIM estimator and the standard stochastic gradient descent step becomes Fisher efficient.
 
-Second, there is \textbf{enhanced performance with limited iterations}. In practical scenarios where computational resources or time limit the number of allowable iterations, the benefits of incorporating second-order information become more pronounced. Natural gradient descent can achieve lower loss values or better parameter estimates within a fixed iteration budget compared to first-order methods, even if the asymptotic variance reduction is not fully realized.
+However, using the empirical FIM estimator can significantly reduce the constant factor associated with the starting point dependent second term, which can lead to practical performance gains in finite iteration regimes (despite being negligible for large \(k\)).
 
-Third, natural gradient descent can lead to a \textbf{reduction of the starting point dependent term} in convergence. While asymptotically the difference in performance between natural gradient descent and simpler methods may diminish, natural gradient descent can significantly reduce the constant factors associated with convergence terms that depend on the initial parameter values. This reduction can result in practical performance gains in finite-iteration regimes.
+Finally, the proof \citep{amariNaturalGradientWorks1998} also assumes that the model is capable of perfectly capturing the true data distribution—a condition known as \emph{realizability}. However, with growing size of LLMs, this assumption is likely to hold, and thereby leading to the guarantee being satisfied.
 
-Finally, the method allows for the \textbf{approximate usage of the Fisher Information Matrix}. Although computing the exact Fisher Information Matrix is infeasible for large models, practical approximations or efficient estimations—such as using a limited history of gradients or employing block-diagonal or low-rank approximations—can capture sufficient curvature information to improve optimization without incurring prohibitive computational costs.
+In conclusion, while the theoretical Fisher efficiency of natural gradient descent comes with significant assumptions that may not hold exactly, in practical low resource settings the method offers substantial advantages when the number of iterations is limited. This makes \lowrank{} a promising approach for training large-scale language models under memory constraints.
 
-In conclusion, while the theoretical Fisher efficiency of natural gradient descent comes with significant assumptions that may not hold in practical settings, the method still offers substantial advantages when the number of iterations is limited. By leveraging curvature information, natural gradient descent can provide faster convergence and better optimization performance in the early stages of training large-scale models, making it a valuable tool in the machine learning practitioner's arsenal.
-
+\subsection{Algorithm Overview}
 
 \begin{enumerate}
     \item \textbf{Low-Rank Gradient Projection}
@@ -134,7 +123,8 @@ We explain each step in detail below.
 
 \paragraph{Step 1: Low-Rank Gradient Projection}
 
-\input{algos/project.tex}
+% \input{algos/code_box.tex}
+% \input{algos/project.tex}
 
 Given a full-rank gradient tensor $\mathbf{g} \in \mathbb{R}^{n_1 \times n_2 \times \cdots \times n_d}$, we project it onto a low-rank subspace using Tucker decomposition \citep{tuckerMathematicalNotesThree1966}. The Tucker decomposition approximates $\mathbf{g}$ as:
 
