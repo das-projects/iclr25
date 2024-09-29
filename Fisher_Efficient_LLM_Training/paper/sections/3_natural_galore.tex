@@ -1,8 +1,8 @@
-\def\cG{\mathcal{G}}
-\def\rr{\mathbb{R}}
+\section{Accelerating GaLore with Natural Gradients}
 
-\section{Accelerating GaLore with Second-Order Information}
-Generative LLMs are trained with respect to the Causal Language Model (CLM) objective, where the task is to predict the next token in a sequence based solely on the tokens that have come before it. This approach is called ``causal'' because it respects the temporal order of language, ensuring that the model's predictions at any point depend only on past and not future inputs.
+\subsection{Causal Language Model Objective}
+
+Generative LLMs are trained with respect to the Causal Language Model (CLM) objective, where the task is to predict the next token in a sequence based solely on the tokens that have come before it. This approach is called "causal" because it respects the temporal order of language, ensuring that the model's predictions at any point depend only on past and not future inputs.
 
 Given a sequence of tokens \( x = (x_1, x_2, \dots, x_T) \), the causal language model aims to maximize the likelihood of the sequence by decomposing it into a product of conditional probabilities:
 
@@ -14,82 +14,113 @@ where:
 
 \begin{itemize}
     \item \( x_{<t} = (x_1, x_2, \dots, x_{t-1}) \) represents all tokens before position \( t \).
-    \item \( \text{Prob}_{\theta}(x_t \mid x_{<t}) \) is the probability of the next token given all previous tokens and \( \theta \in \Theta \) where \( \Theta\) is the space of all model parameters.
+    \item \( \text{Prob}_{\theta}(x_t \mid x_{<t}) \) is the probability of the next token given all previous tokens and the parameter \( \theta \in \mathbb{R}^{n \times m} \).
 \end{itemize}
 
 The training objective is to minimize the \textit{negative log-likelihood (NLL)} of the observed sequences, which is equivalent to minimizing the \textit{cross-entropy loss} between the predicted probability distribution and the actual next token:
 
-\[
+\begin{eqnarray}
 \Phi(\theta) = -\sum_{t=1}^T \log \text{Prob}_{\theta}(x_t \mid x_{<t})
-\]
+\label{eq:cross_entropy_loss}
+\end{eqnarray}
 
-This loss penalizes the model more when it assigns lower probabilities to the correct next token. By minimizing this loss, the model learns to assign higher probabilities to appropriate continuations of text.
+This loss penalizes the model more when it assigns lower probabilities to the correct next token. By minimizing this loss, the model learns to assign higher probabilities to appropriate continuations of text. However, the loss is non-convex and high-dimensional, making optimization challenging.
 
-Now gradient descent algorithms are iterative in nature, where the goal at each step is to find the optimal update direction $\mathbf{\delta}$ that locally minimizes the loss function. Now in the case of GaLore, the update direction can be parameterized as: \(\mathbf{\delta} = \mathbf{P^T u}\), where \(\mathbf{P} \in \mathbb{R}^{r\text{x}n}\) is the projection matrix, which means that the Taylor series expansion for that update is given by:
+\subsection{Low Rank Gradient Descent}
+
+Now stochastic gradient descent algorithms are iterative, where the goal at each step is to find the optimal update direction that minimizes the loss function locally. Now in the case of GaLore, the update direction, say \(u_{k}\) is restricted to the affine subspace \(u_{k} \in {\theta_{k}} + \text{Range} \left(P_{k}^{T}\right)\), where \(\mathbf{P_{k}} \in \mathbb{R}^{r\times n}\) is the projection matrix defined by the top \(r\) left singular vectors of the gradient \(\nabla_{\theta} \Phi(\theta)\). Then the local neighborhood around this update can be define using the Taylor series expansion as:
+
+\begin{eqnarray}
+\Phi(\theta_{k} + \mathbf{P_{k}^T u_{k}}) \approx \Phi(\theta_{k}) + \mathbf{g_{k}}^{T}\mathbf{u_{k}} + \frac{1}{2} \mathbf{u_{k}^{T} \mathbf{H_{k}}  u_{k}}
+\label{eq:taylor_series_expansion}
+\end{eqnarray}
+
+where \(\mathbf{g_{k}} = P_{k}\nabla_{\theta} \Phi(\theta_{k})\) is the low rank projected gradient and \(\mathbf{H_{k}} = P_{k}\nabla^2_{\theta} \Phi(\theta) P_{k}^T\) is the Hessian Matrix. Then the optimal direction \(u_{k}^{*}\) which minimizes the loss in this local neighborhood is given by (cite Fuji et al paper):
+
+\begin{eqnarray}
+\mathbf{u_{k}^{*}} &=& \mathbf{H_{k}}^{-1} \mathbf{g_{k}}
+\label{eq:optimal_direction}
+\end{eqnarray}
+
+ This leads to the optimal gradient descent update step:
 
 \[
-\Phi(\theta - \mathbf{P^T u}) \approx \Phi(\theta) - \mathbf{g^T P^T u} + \frac{1}{2} \mathbf{u^T PHP^T  u}
+\theta_{k+1} = \theta_{k} - \eta \mathbf{P_{k}^T u^*_{k}}
+\label{eq:gradient_descent_update}
 \]
 
-where \(\mathbf{g} = \nabla_{\theta} \Phi(\theta)\) is the gradient and \(\mathbf{H} = \nabla^2_{\theta} \Phi(\theta)\) is the Hessian Matrix. Then the problem of finding the optimal direction in the low rank space is given by:
+for some learning rate \(\eta\).
+
+Fortunately, exactly under the condition that the loss function can be represented in terms of KL divergence between the true and approximated distributions i.e. the CLM objective \ref{eq:cross_entropy_loss}, the Hessian matrix \(\mathbf{H_{k}}\) can be approximated by the Fisher Information Matrix (FIM) \(\mathbf{F_{k}}\). The FIM is defined as the expectation of the Hessian of the negative log-likelihood with respect to the data distribution:
 
 \[
-\mathbf{u^*} = \argmin_{u\in \mathbb{R}^r} \{\Phi(\theta_{k}) - \mathbf{g^T P^T u} + \frac{1}{2} \mathbf{u^T PHP^T  u}\}
+\mathbf{F_{k}} = \mathbb{E}_{x \sim p_{\text{data}}} \left[ \mathbf{H_{k}} \right]
 \]
 
-which corresponds to the gradient descent update given by:
+The FIM captures the curvature of the loss landscape and provides a natural metric for the optimization process. However, as the theoretical data distribution is unknown, in practice we need to estimate is using the empirical Fisher Information Matrix \citep{martensNewPerspectiveNatural2014} defined by:
 
 \[
-\theta_{k+1} = \theta_{k} - \alpha_{k} \mathbf{P^T u^*}
+\mathbf{\hat{F}_{k}} = \frac{1}{h} \sum_{k=1}^{h} \mathbf{g_{k}} \mathbf{g_{k}}^{T}
 \]
 
-for some learning rate $\alpha_{k}$ at the $k^{\text{th}}$ iteration.
+where \(h\) is the history of gradients from past batches we would like to consider.
 
-In GaLore, the projection matrix $\mathbf{P}$ is chosen to be the top $r$ singular vectors of the gradient matrix $\mathbf{g}$ and the solution to $u^*$ is approximated using popular optimizers like Adam, AdamW, etc. This method is memory efficient as it only requires storing the projection matrix and the costly optimizer states are now significantly reduced depending on the chosen rank $r$.
+Many popular stochastic optimization algorithms approximate the diagonal of the empirical FIM using second moment estimates of the gradient \(\mathbf{g_{k}}\), which when added with Polyak style parameter averaging (i.e. momentum), these methods asymptotically achieve the optimal Fisher efficient convergence rate \citep{martens2020new}.
 
-\input{algos/code_box.tex}
+For example, in the case Adam, the optimal update step is approximated by including the momentum term \(m_{k} \in \mathbb{R}^{r\times m}\) and the learning rate \(\eta\) is scaled by the square root of the second moment estimate \(v_{k} \in \mathbb{R}^{r\times m}\). With all operations being elementwise, the update direction becomes:
 
-However, the performance of GaLore is still not on par with the vanilla AdamW optimizer. To bridge this gap, we propose Natural GaLore, which incorporates second-order information in the optimization process.
+\begin{eqnarray}
+    m_{k} &=& \beta_{1} m_{k-1} + (1-\beta_{1}) g_{k} \\
+    v_{k} &=& \beta_{2} v_{k-1} + (1-\beta_2) g^{2}_{k}  \\
+    u^*_{k} &=& m_{k} / \sqrt{v_{k} + \epsilon}
+\end{eqnarray}
 
-A property of the natural gradient is that it is \textit{Fisher efficient}, meaning that it minimizes the expected Kullback-Leibler divergence between the true and approximated distributions in a single step. 
+This method is memory efficient as it only requires storing the projection matrix and the costly optimizer states \(\left(g_{k}, m_{k}, v_{k}\right)\) are now significantly reduced by a factor of \(\frac{n}{r}\), where \(r\) the rank, can be chosen based on memory limitations.
 
-This property is particularly useful in the context of LLMs, where the loss landscape is highly non-convex and the optimization process can be challenging.
+% \input{algos/code_box.tex}
 
-Natural gradient methods are optimization algorithms that adjust parameter updates according to the geometry of the parameter space, leading to faster convergence compared to standard gradient descent \citep{amariNaturalGradientWorks1998}. They precondition the gradient using the inverse of the Fisher Information Matrix (FIM), effectively incorporating second-order information about the loss landscape. However, computing and storing the full FIM and its inverse is computationally infeasible for large-scale models due to their high dimensionality.
+However, the performance of GaLore is still not on par with the Adam or AdamW optimization on the original space. To bridge this gap, we propose \lowrank, which uses the full empirical Fisher Information matrix, thereby incorporating the missing second-order interaction information in the optimization process. This leads to a much more favorable dependence on the starting point, which means that they can make much more progress given a limited iteration budget. Further, when using a decaying learning rate schedule like with AdamW (reference), the asymptotic convergence rate can by faster by a large constant factor.
 
-\subsection{Amari's Fisher Efficiency Result}
+\subsection{\lowrank and Fisher Efficiency}
 
-Natural gradient descent is known for its desirable property of being ``Fisher efficient,'' as demonstrated by \citet{amari1998natural}. This means that, under certain conditions, the estimator obtained via natural gradient descent achieves the lowest possible asymptotic variance as dictated by the Cramér-Rao lower bound. Specifically, when minimizing an objective function \( h(\theta) \) that represents the expected loss over a data distribution, natural gradient descent updates of the form
+Natural gradient methods are optimization algorithms that adjust parameter updates according to the geometry of the parameter space, leading to faster convergence compared to standard gradient descent \citep{amariNaturalGradientWorks1998}. They precondition the gradient using the inverse of the Fisher Information Matrix (FIM), effectively incorporating second-order information about the loss landscape.
+
+The key difference between GaLore and \lowrank is that the gradient update using popular optimizers like Adam, AdamW, etc is applied to the preconditioned gradient:
 \[
-\theta_{k+1} = \theta_k - \alpha_k F^{-1} g_k(\theta_k)
+\tilde{g} = \mathbf{F}^{-1} \mathbf{g}
 \]
-can lead to estimators \( \theta_k \) whose variance converges to the optimal value of \( \frac{1}{k} F^{-1}(\theta^*) \) as the number of iterations \( k \) increases, where \( F(\theta^*) \) is the Fisher Information Matrix evaluated at the optimal parameter \( \theta^* \), and \( g_k(\theta_k) \) is an unbiased stochastic gradient estimate.
+where \( F(\theta^*) \) is the Fisher Information Matrix, leaving the choice of the projection matrix $\mathbf{P}$ exactly the same.
 
-However, several important caveats and conditions accompany this result:
+Fortunately, natural gradient descent is known \citep{martens2020new} for its desirable property of being \textit{Fisher Efficient}, exactly under the condition that the loss function can be represented in terms of KL divergence between the true and approximated distributions i.e. the CLM objective \ref{eq:cross_entropy_loss}. Fisher efficiency means that the natural gradient estimator achieves the lowest possible variance among all unbiased estimators of the gradient.
 
-\begin{enumerate}
-    \item \textbf{Assumption of Convergence to the Global Optimum}: The proof assumes that the parameter updates converge to the global optimum \( \theta^* \). While this assumption holds in convex optimization problems, it does not generally hold for non-convex objectives such as those encountered in deep neural networks. In practice, convergence to a local optimum may still allow the Fisher efficiency property to hold approximately, but this is not guaranteed.
+For \lowrank, the gradient descent update \ref{eq:gradient_descent_update} leads to a sequence of estimates \( \theta_k \) whose variance satisfies \citep{amariNaturalGradientWorks1998}:
+\[
+\text{Var}[\theta_{k}] = \frac{1}{mk} F^{-1}(\theta_{k}^*) + \mathcal{O}\left(\frac{1}{k^2}\right)
+\]
+which is asymptotically the smallest possible variance matrix, i.e. the Cramér-Rao lower bound, that any unbiased estimator computed from \(mk\) training samples can have, with \(m\) as the batch size. Here \(\theta_{k}^*\) is the local optima, in the neighborhood defined by the Taylor series expansion around the update. (See more)
 
-    \item \textbf{Requirement of Exact Fisher Information Matrix Computation}: The result relies on the exact computation of the Fisher Information Matrix \( F(\theta) \) using the entire data distribution. In large-scale machine learning tasks, computing \( F(\theta) \) over the entire training set is computationally infeasible. Approximating \( F(\theta) \) using mini-batches or running estimates can introduce errors that may invalidate the Fisher efficiency guarantee.
+Although natural gradient descent is often considered the optimal optimization method in stochastic settings due to its Fisher efficiency, several significant caveats and conditions accompany this result.
 
-    \item \textbf{Result Focuses on Parameter Convergence}: The Fisher efficiency result pertains to the convergence of the parameter estimates \( \theta_k \) in terms of their variance, not directly to the convergence of the objective function value \( h(\theta_k) \). While lower variance in parameter estimates is desirable, practitioners are often more interested in the optimization of the loss function. Although there is a relationship between parameter variance and loss convergence, the translation is not straightforward and may depend on additional assumptions.
+First, the proof of Fisher efficiency assumes that the parameter updates converge to the global optimum \( \theta^* \). While this assumption holds in convex optimization problems, it does not generally hold for non-convex objectives commonly encountered in deep neural networks. In practice, convergence may only reach a local optimum, and the Fisher efficiency property may only hold approximately, if at all. Change this paragraph to reflect that at each step we doing a local optimization.
 
-    \item \textbf{Assumption of Model Realizability}: The proof assumes that the model is capable of perfectly capturing the true data distribution—referred to as ``realizability.'' This means that at the optimal parameters \( \theta^* \), the model distribution matches the data distribution exactly. In practice, models may be misspecified or have insufficient capacity, violating this assumption and potentially invalidating the Fisher efficiency result.
-\end{enumerate}
+Second, the result relies on the exact computation of the Fisher Information Matrix \( F(\theta) \) using the entire data distribution. In large-scale machine learning tasks, computing \( F(\theta) \) over the entire training set is computationally infeasible. Approximating \( F(\theta) \) using mini-batches or running estimates introduces errors that may invalidate the Fisher efficiency guarantee.
 
-Despite these caveats, natural gradient descent remains a valuable optimization method, especially when the iteration budget is limited. Here's why:
+Third, the Fisher efficiency result focuses on the convergence of the parameter estimates \( \theta_k \) in terms of their variance, rather than directly addressing the convergence of the objective function value \( h(\theta_k) \). While reducing variance in parameter estimates is beneficial, practitioners are often more interested in the optimization of the loss function itself. The relationship between parameter variance and loss convergence is not straightforward and may depend on additional assumptions. not important.
 
-\begin{itemize}
-    \item \textbf{Improved Convergence Rates in Practice}: Even if the asymptotic guarantees are compromised due to the above conditions, natural gradient descent can still offer faster convergence in the early stages of optimization. By accounting for the curvature of the loss landscape through the Fisher Information Matrix (or its approximation), natural gradient descent can take more informed steps compared to standard gradient descent, potentially escaping flat regions or navigating steep ravines more effectively.
+Finally, the proof assumes that the model is capable of perfectly capturing the true data distribution—a condition known as \emph{realizability}. This means that at the optimal parameters \( \theta^* \), the model distribution matches the data distribution exactly. In practice, models may be misspecified or lack sufficient capacity to fully represent the true data distribution, violating this assumption and potentially invalidating the Fisher efficiency result. Bigger LLMs are more likely to be realizable.
 
-    \item \textbf{Enhanced Performance with Limited Iterations}: In practical scenarios where computational resources or time limit the number of allowable iterations, the benefits of incorporating second-order information become more pronounced. Natural gradient descent can achieve lower loss values or better parameter estimates within a fixed iteration budget compared to first-order methods, even if the asymptotic variance reduction is not fully realized.
+Despite these caveats, natural gradient descent remains a valuable optimization method, especially when the iteration budget is limited. There are several reasons for this:
 
-    \item \textbf{Reduction of the Starting Point Dependent Term}: While asymptotically the difference in performance between natural gradient descent and simpler methods may diminish, natural gradient descent can significantly reduce the constant factors associated with convergence terms that depend on the initial parameter values. This reduction can lead to practical performance gains in finite-iteration regimes.
+First, natural gradient descent can offer \textbf{improved convergence rates in practice}. Even if the asymptotic guarantees are compromised due to the aforementioned conditions, incorporating second-order information through the Fisher Information Matrix—or its approximation—allows the optimizer to account for the curvature of the loss landscape. This enables natural gradient descent to take more informed steps compared to standard gradient descent, potentially escaping flat regions or navigating steep ravines more effectively.
 
-    \item \textbf{Approximate Fisher Information Matrix Usage}: Although computing the exact Fisher Information Matrix is infeasible for large models, practical approximations or efficient estimations (such as using a limited history of gradients or employing block-diagonal or low-rank approximations) can capture enough curvature information to improve optimization without incurring prohibitive computational costs.
-\end{itemize}
+Second, there is \textbf{enhanced performance with limited iterations}. In practical scenarios where computational resources or time limit the number of allowable iterations, the benefits of incorporating second-order information become more pronounced. Natural gradient descent can achieve lower loss values or better parameter estimates within a fixed iteration budget compared to first-order methods, even if the asymptotic variance reduction is not fully realized.
+
+Third, natural gradient descent can lead to a \textbf{reduction of the starting point dependent term} in convergence. While asymptotically the difference in performance between natural gradient descent and simpler methods may diminish, natural gradient descent can significantly reduce the constant factors associated with convergence terms that depend on the initial parameter values. This reduction can result in practical performance gains in finite-iteration regimes.
+
+Finally, the method allows for the \textbf{approximate usage of the Fisher Information Matrix}. Although computing the exact Fisher Information Matrix is infeasible for large models, practical approximations or efficient estimations—such as using a limited history of gradients or employing block-diagonal or low-rank approximations—can capture sufficient curvature information to improve optimization without incurring prohibitive computational costs.
 
 In conclusion, while the theoretical Fisher efficiency of natural gradient descent comes with significant assumptions that may not hold in practical settings, the method still offers substantial advantages when the number of iterations is limited. By leveraging curvature information, natural gradient descent can provide faster convergence and better optimization performance in the early stages of training large-scale models, making it a valuable tool in the machine learning practitioner's arsenal.
+
 
 \begin{enumerate}
     \item \textbf{Low-Rank Gradient Projection}
@@ -328,17 +359,17 @@ We have introduced Natural GaLore, an efficient online natural gradient algorith
 \section{\lowrank: Gradient Low-Rank Projection}
 \subsection{Background}
 \input{figures/framework.tex}
-\textbf{Regular full-rank training.} At time step $t$, $G_t = -\nabla_W \phi_t(W_t) \in \rr^{m \times n}$ is the backpropagated (negative) gradient matrix. Then the regular pre-training weight update can be written down as follows ($\eta$ is the learning rate):
+\textbf{Regular full-rank training.} At time step $t$, $G_t = -\nabla_W \phi_t(W_t) \in \mathbb{R}^{m \times n}$ is the backpropagated (negative) gradient matrix. Then the regular pre-training weight update can be written down as follows ($\eta$ is the learning rate):
 \begin{equation}
     W_T = W_0 + \eta \sum_{t=0}^{T-1} \tilde G_{t} = W_0 + \eta\sum_{t=0}^{T-1} \rho_t(G_t)
 \end{equation}
-where $\tilde G_t$ is the final processed gradient to be added to the weight matrix and $\rho_t$ is an entry-wise stateful gradient regularizer (e.g., Adam). The state of $\rho_t$ can be memory-intensive. For example, for Adam, we need $M,V \in \rr^{m\times n}$ to regularize the gradient $G_t$ into $\tilde G_{t}$:
+where $\tilde G_t$ is the final processed gradient to be added to the weight matrix and $\rho_t$ is an entry-wise stateful gradient regularizer (e.g., Adam). The state of $\rho_t$ can be memory-intensive. For example, for Adam, we need $M,V \in \mathbb{R}^{m\times n}$ to regularize the gradient $G_t$ into $\tilde G_{t}$:
 \begin{eqnarray}
     M_t &=& \beta_1 M_{t-1} + (1-\beta_1) G_t \\
     V_t &=& \beta_2 V_{t-1} + (1-\beta_2) G^2_t  \\
     \tilde G_t &=& M_t / \sqrt{V_t + \epsilon}
 \end{eqnarray}
-Here $G_t^2$ and $M_t / \sqrt{V_t + \epsilon}$ means element-wise multiplication and division. $\eta$ is the learning rate. Together with $W\in \rr^{m\times n}$, this takes $3mn$ memory.
+Here $G_t^2$ and $M_t / \sqrt{V_t + \epsilon}$ means element-wise multiplication and division. $\eta$ is the learning rate. Together with $W\in \mathbb{R}^{m\times n}$, this takes $3mn$ memory.
 
 From the theoretical analysis above, we can see that for batch size $N$, the gradient $G$ has certain structures: $G = \frac{1}{N}\sum_{i=1}^N (A_i - B_i W C_i)$ for input-dependent matrix $A_i$, Positive Semi-definite (PSD) matrices $B_i$ and $C_i$. In the following, we prove that such a gradient will become low-rank during training in certain conditions:
 
