@@ -1,18 +1,13 @@
-
-
-
-
-
 \section{Conclusion}
 
-We propose \lowrank{}, a memory-efficient pre-training and fine-tuning strategy for large language models.
-\lowrank{} significantly reduces memory usage by up to 65.5\% in optimizer states while maintaining both efficiency and performance for large-scale LLM pre-training and fine-tuning.
+We have introduced \textit{\lowrank}, a memory-efficient pre-training and fine-tuning strategy for large language models. \textit{\lowrank} significantly reduces memory usage—by up to 65.5\% in optimizer states—while maintaining or even improving performance in large-scale LLM pre-training and fine-tuning tasks. By incorporating second-order information through an efficient approximation of the inverse Empirical Fisher Information Matrix, \textit{\lowrank} enhances convergence rates, especially in regimes with a limited iteration budget.
 
-We identify several open problems for \lowrank{}, which include (1) applying \lowrank{} on training of various models such as vision transformers \citep{dosovitskiy2021an} and diffusion models \citep{ho2020denoising}, (2) further enhancing memory efficiency by employing low-memory projection matrices, and (3) exploring the feasibility of elastic data distributed training on low-bandwidth consumer-grade hardware.
+Importantly, \textit{\lowrank} can serve as a \emph{drop-in replacement} for standard optimizers like AdamW and integrates seamlessly into existing training pipelines. Our experimental results highlight the effectiveness of \textit{\lowrank} across various tasks, including pre-training LLaMA models and fine-tuning on the TinyAgent function calling tasks. This makes it a compelling choice for large-scale pre-training scenarios where both memory efficiency and model performance are critical.
 
-We hope that our work will inspire future research on memory-efficient training from the perspective of gradient low-rank projection. 
-We believe that \lowrank{} will be a valuable tool for the community, enabling the training of large-scale models on consumer-grade hardware with limited resources.
+We identify several avenues for future research, including (1) further enhancing memory efficiency by employing low-memory and structured projection matrices, and (2) more extensive empirical evaluation on fine-tuning AAS on a wide variety of tasks.
+
+We hope that our work will inspire future research on memory-efficient training methods from the perspective of optimizer state approximation. We believe that \textit{\lowrank} will be a valuable tool for the community, enabling the training of large-scale models on consumer-grade hardware with limited resources.
 
 \section*{Impact Statement}
 
-This paper aims to improve the memory efficiency of training LLMs in order to reduce the environmental impact of LLM pre-training and fine-tuning. By enabling the training of larger models on hardware with lower memory, our approach helps to minimize energy consumption and carbon footprint associated with training LLMs.
+This work aims to improve the memory efficiency of training LLMs, thereby reducing the environmental impact of LLM pre-training and fine-tuning. By enabling the training of larger models on hardware with lower memory requirements, our approach helps to minimize energy consumption and carbon footprint associated with training LLMs. Furthermore, by making advanced model training more accessible, we contribute to democratizing AI research and development, allowing a broader community to engage with large-scale models without the need for expensive computational resources.

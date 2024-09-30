@@ -1,94 +1,47 @@
 \section{Experiments}
 
-We evaluate \textbf{Natural GaLore} on pre-training and fine-tuning tasks for large language models (LLMs). All experiments are conducted on a single node with NVIDIA A100 GPUs to leverage high-performance computing capabilities.
+We evaluate \textit{\lowrank} on pre-training and fine-tuning tasks for LLMs. All experiments are conducted on a single node with 8 NVIDIA A100 GPUs to leverage high-performance computing capabilities, yet stay within reasonable limits.
 
 \subsection{Pre-training on the C4 Dataset}
 
-To assess the effectiveness of Natural GaLore, we apply it to pre-train LLaMA-based language models of varying sizes on the C4 dataset. The C4 dataset is a colossal, cleaned version of the Common Crawl corpus, primarily intended for pre-training language models and word representations \citep{raffelExploringLimitsTransfer2023}. It provides a diverse and extensive corpus, making it suitable for evaluating pre-training methods in realistic scenarios.
+To assess the effectiveness of \textit{\lowrank}, we apply it to pre-train LLaMA-based language models of sizes ranging from 60 million to 1.1 billion parameters, on the C4 dataset. The C4 dataset is a colossal, cleaned version of the Common Crawl Corpus, primarily intended for pre-training language models and word representations \citep{raffelExploringLimitsTransfer2020}. It provides a diverse and extensive corpus, making it suitable for evaluating pre-training methods in realistic scenarios.
 
-In order to simulate practical pre-training conditions, we train models without data repetition over a sufficiently large amount of data, covering model sizes ranging from 60 million to 1.1 billion parameters. This approach ensures that our evaluation reflects the challenges encountered in large-scale language model training.
+We adopt the experimental setup from \citet{lialinReLoRAHighRankTraining2023}, utilizing a LLaMA-based\footnote[3]{LLaMA materials in our paper are subject to the LLaMA community license.} architecture with RMSNorm and SwiGLU activations \citep{shazeerGLUVariantsImprove2020,touvronLlamaOpenFoundation2023}. We maintain the same set of hyperparameters for each model size across all methods, except for the learning rate, which is tuned individually to ensure optimal performance. All experiments use the BF16 format to reduce memory usage without compromising computational efficiency, the same computational budget and the best validation perplexity is reported.
 
-We adopt the experimental setup from \citet{lialinReLoRAHighRankTraining2023}, utilizing a LLaMA-based\footnote[3]{LLaMA materials in our paper are subject to the LLaMA community license.} architecture with RMSNorm and SwiGLU activations \citep{zhangRootMeanSquare2019,shazeerGLUVariantsImprove2020,touvronLlamaOpenFoundation2023}. We maintain the same set of hyperparameters for each model size across all methods, except for the learning rate, which is tuned individually to ensure optimal performance. All experiments use the BF16 format to reduce memory usage without compromising computational efficiency.
+\input{figures/llama1B_validation_perplexity.tex}
 
-We allocate the same computational budget to each method to ensure a fair comparison and report the best validation perplexity achieved after hyperparameter tuning. Detailed descriptions of the task setups and hyperparameters are provided in the appendix.
+\input{tables/lora_compare_llama.tex}
 
-\input{tables/lora_comapre_llama.tex}
-
-Table~\ref{tab:lora_compare_llama} presents the validation perplexity and memory consumption for models trained with different methods. Our proposed \textbf{Natural GaLore} consistently outperforms GaLore across all model sizes, achieving validation perplexities closer to the Full-Rank baseline while maintaining significant memory savings. For example, on the 1.1B parameter model, Natural GaLore achieves a perplexity of \textbf{15.58} compared to GaLore's 15.64 and the Full-Rank model's 15.56, all while using substantially less memory (4.38G vs. 7.80G).
-
-Furthermore, Natural GaLore performs better than other low-rank adaptation methods like LoRA and ReLoRA, particularly as the model size increases. LoRA and ReLoRA exhibit higher perplexities and greater memory consumption due to their less efficient use of low-rank structures and the need for additional optimizer states.
-
-These results highlight the effectiveness of incorporating second-order information through Natural GaLore. By efficiently applying the inverse Empirical Fisher Information Matrix to low-rank gradients, Natural GaLore improves convergence rates and performs better without additional memory overhead. This makes it a compelling choice for large-scale pre-training scenarios where memory efficiency and model performance are critical.
+Table~\ref{tab:lora_compare_llama} presents the validation perplexity and memory consumption for models trained with different methods. Our proposed \textit{\lowrank} consistently outperforms GaLore \citep{zhao2024galore} across all model sizes, achieving validation perplexities closer to the full-rank baseline while maintaining significant memory savings. Furthermore, Natural GaLore exhibits lower perplexities and greater memory consumption compared to other low-rank adaptation methods like LoRA and ReLoRA, due to their less efficient use of low-rank structures and the need for additional optimizer states.
 
 \vspace{-2mm}
 
-% \subsection{Fine-Tuning RoBERTa-Base on the GLUE Benchmark}
-
-% To further evaluate the effectiveness of \textbf{Natural GaLore}, we conduct experiments on the General Language Understanding Evaluation (GLUE) benchmark using the pre-trained RoBERTa-Base model. The GLUE benchmark is a collection of nine natural language understanding tasks, including single-sentence tasks like CoLA \citep{warstadt2019neural}, similarity and paraphrase tasks like MRPC \citep{dolan2005automatically} and STS-B \citep{cer2017semeval}, and inference tasks like RTE \citep{dagan2005pascal}, MNLI \citep{williams2018broad}, and QNLI \citep{rajpurkar2016squad}. This benchmark is widely used to assess the performance of language models on diverse linguistic phenomena.
-
-% In our experiments, we fine-tune the RoBERTa-Base model using Natural GaLore and compare its performance with full fine-tuning and LoRA \citep{hu2021lora}. We focus on memory-efficient fine-tuning methods to reduce the computational footprint while maintaining high performance. For each method, we report the average score across all GLUE tasks, along with individual task scores.
-
-% We use the same training hyperparameters across all methods for a fair comparison. The batch size is set to 32, and we fine-tune each model for 3 epochs. The learning rate is selected from \{1e-5, 2e-5, 3e-5\} based on the best validation performance for each task. For Natural GaLore and LoRA, we experiment with rank values of 4 and 8 to study the trade-off between performance and memory efficiency.
-
-% Table~\ref{tab:fine_tuning} presents the results of our experiments. Natural GaLore consistently achieves comparable or better performance than LoRA across most tasks while using less memory. Specifically, with a rank of 4, Natural GaLore attains an average score of \textbf{86.05}, closely matching the full fine-tuning baseline of 86.28, and outperforming LoRA's average score of 85.61. This demonstrates that Natural GaLore can effectively fine-tune large models with reduced memory consumption without sacrificing performance.
-
-% \begin{table}[t]
-%     \caption{\small{Evaluating Natural GaLore for memory-efficient fine-tuning on the GLUE benchmark using pre-trained RoBERTa-Base. We report the average score of all tasks.}}
-%     \label{tab:fine_tuning}
-%     \centering
-%     \resizebox{\linewidth}{!}{%
-%     \begin{tabular}{l|c|cccccccc|c}
-%     \toprule
-%                & \textbf{Memory} & \textbf{CoLA} & \textbf{STS-B} & \textbf{MRPC} & \textbf{RTE} & \textbf{SST-2} & \textbf{MNLI} & \textbf{QNLI} & \textbf{QQP} & \textbf{Avg} \\
-%     \midrule
-%     Full Fine-Tuning & 747M & 62.24 & 90.92 & 91.30 & 79.42 & 94.57 & 87.18 & 92.33 & 92.28 & 86.28 \\
-%     \midrule
-%     \textbf{Natural GaLore (rank=4)} & \textbf{250M} & 61.50 & \textbf{90.80} & \textbf{92.10} & \textbf{79.50} & \textbf{94.20} & \textbf{87.05} & \textbf{92.30} & 91.15 & \textbf{86.05} \\
-%     LoRA (rank=4) & 257M & \textbf{61.38} & 90.57 & 91.07 & 78.70  & 92.89 & 86.82 & 92.18 & \textbf{91.29} & 85.61 \\
-%     \midrule
-%     \textbf{Natural GaLore (rank=8)} & \textbf{254M} & 61.70 & \textbf{90.90} & \textbf{92.25} & \textbf{79.80} & \textbf{94.40} & \textbf{87.20} & 92.35 & 91.25 & \textbf{86.23} \\
-%     LoRA (rank=8) & 264M & \textbf{61.83} & 90.80 & 91.90 & 79.06  & 93.46 & 86.94 & \textbf{92.25} & \textbf{91.22} & 85.93 \\
-%     \bottomrule
-%     \end{tabular}
-%     }
-%     \vskip -0.1in
-% \end{table}
-
-% \paragraph{Discussion}
-
-% The results indicate that Natural GaLore is effective in fine-tuning pre-trained models on downstream tasks with minimal memory overhead. By incorporating second-order information through the natural gradient, Natural GaLore enhances convergence and model performance. Notably, Natural GaLore achieves higher scores on tasks like RTE, SST-2, and MNLI compared to LoRA, which suggests that the method is particularly beneficial for tasks requiring nuanced understanding and reasoning.
-
-% Moreover, the reduced memory consumption makes Natural GaLore a practical choice for scenarios with limited computational resources. With a rank of 4, Natural GaLore reduces memory usage by approximately 66\% compared to full fine-tuning, enabling the deployment of large models on hardware with constrained memory capacity.
-
-% These experiments demonstrate the versatility and efficiency of Natural GaLore in fine-tuning language models across various natural language understanding tasks, reinforcing its applicability in real-world settings where both performance and resource utilization are critical considerations.
-
-% \vspace{-2mm}
-
 \subsection{Fine-Tuning TinyLlama 1.1B for Function Calling in Advanced Agentic Systems}
 
-Advanced Agentic Systems (AAS) require language models that can understand and generate code snippets to integrate various tools and APIs, fulfilling user queries through function calling. We utilize the TinyAgent framework, which provides an end-to-end pipeline for training and deploying task-specific LLM agents capable of function calling \citep{tinyagent} to drive agentic systems at the edge.
+Advanced Agentic Systems (AAS) require language models that can understand and generate code snippets to integrate various tools and APIs, fulfilling user queries through function-calling. We utilize the TinyAgent framework, which provides an end-to-end pipeline for training and deploying task-specific LLM agents capable of efficient and accurate function-calling \citep{erdogan2024tinyagent} to drive agentic systems at the edge.
 
-The primary objective is to teach language models to perform function calling effectively. Given a natural language query, the LLM agent must generate a sequence of function calls that accomplish the desired tasks. The set of possible function calls is predefined and known to the agent. The challenge lies in determining which functions to call, the appropriate arguments to pass, and the correct order of function calls while respecting interdependencies among the functions.
+Given a natural language query, the LLM agent must generate a sequence of pre-defined function-calls that accomplish the desired tasks. The challenge lies in determining the appropriate arguments, to call the correct functions, in the right order while respecting interdependencies among the functions.
 
-\citet{llmcompiler} introduced LLMCompiler, a framework that enables language models to perform function calling by first generating a \emph{function calling plan}. This plan includes the functions the model needs to call and the required arguments. The LLMCompiler then compiles this plan into an executable sequence of function calls. The critical aspect is training the model to produce a function calling plan with the correct syntax and dependencies.
+LLMCompiler \citet{kim2023llmcompiler}, is a framework that enables language models to perform function-calling by first generating a function-calling plan, which includes the required functions and arguments. The LLMCompiler then compiles this plan into an executable sequence of function-calls. The critical aspect is training the model to produce a function-calling plan with the correct syntax and dependencies.
 
-In preliminary experiments reported by \citet{tinyagent}, the off-the-shelf TinyLlama 1.1B (instruct-32k) model performed poorly on this task. The model generated incorrect sets of functions, hallucinated function names, failed to respect dependencies, and incorrectly passed arguments. This underperformance is expected, as the model was initially trained on datasets like SlimPajama and StarCoder, which are not specific to function-calling tasks. To address this, we follow the TinyAgent framework and fine-tune the TinyLlama 1.1B model on a high-quality, curated dataset designed for function calling.
+The off-the-shelf pre-trained TinyLlama 1.1B (instruct-32k) model performs poorly on this task. The model generates incorrect sets of functions, hallucinated function names, fails to respect dependencies, and passes arguments incorrectly. This underperformance is expected, as the model was initially trained on datasets like SlimPajama and StarCoder, which are not specific to function-calling tasks. To address this, we follow the TinyAgent framework \citep{erdogan2024tinyagent} and fine-tune the TinyLlama 1.1B model on a high-quality, curated dataset designed for function-calling.
 
 \paragraph{TinyAgent Dataset}
 
-The TinyAgent dataset is a meticulously curated collection aimed at building a local agentic system for function calling on devices like Apple MacBooks for day-to-day tasks. It contains 40,000 examples of natural language queries and corresponding function calling plans. The dataset is divided into 38,000 training examples, 1,000 validation examples, and 1,000 test examples. It encompasses 16 tasks: Email, Contacts, SMS, Calendar, Notes, Reminders, File Management, Zoom Meetings, and more. Each task has predefined scripts that the model needs to generate. The dataset is intentionally challenging, requiring the model to understand dependencies between function calls and the arguments to be passed.
+The TinyAgent dataset \citep{erdogan2024tinyagent} is a meticulously curated collection aimed at building a local agentic system for function-calling on Apple MacBooks for day-to-day tasks. It contains 40K examples of natural language queries and corresponding function-calling plans. The dataset is divided into 38K training examples, 1K validation examples, and 1K test examples. It encompasses 16 tasks, including Email, Contacts, SMS, Calendar, Notes, Reminders, File Management and Zoom Meetings. Each task has predefined scripts that the model needs to generate. The dataset is intentionally challenging, requiring the model to understand dependencies between function-calls and the arguments to be passed.
 
 \paragraph{Fine-Tuning Procedure}
 
-We fine-tune the TinyLlama 1.1B model on the TinyAgent dataset for three epochs using a batch size 32. The learning rate is set to \(7 \times 10^{-5}\). After each epoch, the model is evaluated on the validation set, and the best-performing model is selected based on validation performance to be evaluated on the test set. The training objective is to maximize the accuracy of the generated function calling plans.
+We fine-tune the TinyLlama 1.1B model on the TinyAgent dataset for three epochs using a batch size of 32. The learning rate is set to \(7 \times 10^{-5}\). After each epoch, the model is evaluated on the validation set, and the best-performing model is selected based on validation performance to be evaluated on the test set.
 
-Success is the model generating the correct plan with the proper set of function calls, correct arguments, and the appropriate order of function calls. Verifying the selection of the correct set of functions involves straightforward set comparison. However, ensuring the correctness of arguments and the order of function calls is more complex and requires constructing the associated Directed Acyclic Graph (DAG) to check for equality.
+During fine-tuning, the prompt includes descriptions of the ground truth functions and irrelevant functions serving as negative samples. This strategy encourages the model to learn to select the correct functions rather than merely memorizing the ground truth. Additionally, several in-context examples demonstrate how queries are translated into function-calling plans. These examples are selected using a Retrieval-Augmented Generation (RAG) process based on the user's query from the training data and a DeBERTa-v3-small model \citep{he2021debertav3} fine-tuned for multi-label classification for retrieval among the 16 tools.
 
-During fine-tuning, the prompt includes descriptions of the ground truth functions and irrelevant functions serving as negative samples. This strategy encourages the model to learn to select the correct functions rather than merely memorizing the ground truth. Additionally, several in-context examples demonstrate how queries are translated into function-calling plans. These examples are selected using a Retrieval-Augmented Generation (RAG) process based on the user's query from the training data.
+The training objective is then to maximize the accuracy of the generated function-calling plans. Success is defined by the model generating the correct plan with the proper set of function-calls, correct arguments, and the appropriate order of function-calls. Verifying the selection of the correct set of functions involves straightforward set comparison. However, ensuring the correctness of arguments and the order of function-calls is more complex and requires constructing the associated Directed Acyclic Graph to check for equality.
 
 \paragraph{Results and Discussion}
 
-After fine-tuning, the TinyLlama 1.1B model's success rate on the test set improved significantly. Using \textbf{Natural GaLore}, the success rate increased from 12.71\% (baseline) to \textbf{83.09\%}, outperforming GPT-4-Turbo by approximately 4\%. In contrast, fine-tuning with the LoRA method resulted in a success rate of 78.89\%. These results demonstrate the effectiveness of Natural GaLore in enhancing the performance of language models on function-calling tasks within advanced agentic systems.
+\input{tables/lora_compare_function_calling.tex}
 
-The substantial improvement underscores the benefit of incorporating second-order information through Natural GaLore during fine-tuning. By efficiently applying the inverse Empirical Fisher Information Matrix to low-rank gradients, Natural GaLore facilitates better convergence and optimization, leading to superior performance without additional memory overhead.
+After fine-tuning, the TinyLlama 1.1B model's success rate on the test set improved significantly. Table~\ref{table:t2} presents the latency, model size, and success rate of various models on the TinyAgent dataset. As shown, \textit{\lowrank} improves the success rate of the 1.1B model from 80.06\% (16-bit LoRA) to \textbf{83.09\%}, also surpassing GPT-4-Turbo by 4\% and approaching the performance of the larger TinyAgent-7B model, which achieves 84.95\%.
 
+These results demonstrate that \textit{\lowrank} not only enhances the performance of smaller models like the 1.1B parameter TinyLlama but also makes them competitive with significantly larger models, especially on function-calling tasks for AAS. By efficiently incorporating second-order information through low-rank natural gradient updates, Natural GaLore enables smaller models to achieve higher accuracy without additional memory overhead.
