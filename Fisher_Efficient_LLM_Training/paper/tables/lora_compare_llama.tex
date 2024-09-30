@@ -1,6 +1,6 @@
 \begin{table*}[ht]
     \centering
-    \caption{\small{Comparison of \lowrank with other low-rank algorithms on pre-training various sizes of LLaMA models on the C4 dataset. Validation log perplexity is reported, along with a memory estimate (in gigabytes) of the total parameters and optimizer states based on BF16 format.}}
+    \caption{\small{Comparison of \textit{\lowrank} with other low-rank algorithms on pre-training various sizes of LLaMA models on the C4 dataset. Validation log perplexity is reported, along with a memory estimate (in gigabytes) of the total parameters and optimizer states based on BF16 format.}}
     \label{tab:lora_compare_llama}
     \begin{tabular}{lcccc}
     \toprule
@@ -8,7 +8,7 @@
     \midrule
     Full-Rank        & 3.52 (0.36G) & 3.22 (0.76G) & 2.93 (2.06G) & 2.72 (7.80G) \\
     \midrule
-    \lowrank & \textbf{3.53} (0.24G) & \textbf{3.22} (0.52G) & \textbf{2.93} (1.22G) & \textbf{2.80} (4.38G) \\
+    \textit{\lowrank} & \textbf{3.53} (0.24G) & \textbf{3.22} (0.52G) & \textbf{2.93} (1.22G) & \textbf{2.80} (4.38G) \\
     GaLore           & 3.56 (0.24G) & 3.24 (0.52G) & 2.95 (1.22G) & 2.90 (4.38G) \\
     Low-Rank         & 4.35 (0.26G) & 3.82 (0.54G) & 3.62 (1.08G) & 4.96 (3.57G) \\
     LoRA             & 3.55 (0.36G) & 3.52 (0.80G) & 3.24 (1.76G) & 2.96 (6.17G) \\
