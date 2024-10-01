@@ -12,7 +12,7 @@ We adopt the experimental setup from \citet{lialinReLoRAHighRankTraining2023}, u
 
 \input{tables/lora_compare_llama.tex}
 
-Table~\ref{tab:lora_compare_llama} presents the validation perplexity and memory consumption for models trained with different methods. Our proposed \textit{\lowrank} consistently outperforms GaLore \citep{zhao2024galore} across all model sizes, achieving validation perplexities closer to the full-rank baseline while maintaining significant memory savings. Furthermore, Natural GaLore exhibits lower perplexities and greater memory consumption compared to other low-rank adaptation methods like LoRA and ReLoRA, due to their less efficient use of low-rank structures and the need for additional optimizer states.
+Table~\ref{tab:lora_compare_llama} presents the validation perplexity and memory consumption for models trained with different methods and Figure~\ref{fig:train_loss} shows the training run for the Llama 1.1B model. Our proposed \textit{\lowrank} consistently outperforms GaLore \citep{zhao2024galore} across all model sizes, achieving validation perplexities closer to the full-rank baseline while maintaining significant memory savings. Furthermore, Natural GaLore exhibits lower perplexities and greater memory consumption compared to other low-rank adaptation methods like LoRA and ReLoRA, due to their less efficient use of low-rank structures and the need for additional optimizer states.
 
 \vspace{-2mm}
 
@@ -44,4 +44,4 @@ The training objective is then to maximize the accuracy of the generated functio
 
 After fine-tuning, the TinyLlama 1.1B model's success rate on the test set improved significantly. Table~\ref{table:t2} presents the latency, model size, and success rate of various models on the TinyAgent dataset. As shown, \textit{\lowrank} improves the success rate of the 1.1B model from 80.06\% (16-bit LoRA) to \textbf{83.09\%}, also surpassing GPT-4-Turbo by 4\% and approaching the performance of the larger TinyAgent-7B model, which achieves 84.95\%.
 
-These results demonstrate that \textit{\lowrank} not only enhances the performance of smaller models like the 1.1B parameter TinyLlama but also makes them competitive with significantly larger models, especially on function-calling tasks for AAS. By efficiently incorporating second-order information through low-rank natural gradient updates, Natural GaLore enables smaller models to achieve higher accuracy without additional memory overhead.
+These results demonstrate that \textit{\lowrank} not only enhances the performance of smaller models like the 1.1B parameter TinyLlama but also makes them competitive with significantly larger models. By efficiently incorporating second-order information through low-rank natural gradient updates, Natural GaLore enables smaller models to achieve higher accuracy without additional memory overhead.
