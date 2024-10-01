@@ -1,1 +1,0 @@
-{"_wandb":{"runtime":154},"_step":230,"loss":6.9013752937316895,"throughput_batches":4.507152194552157,"_runtime":154.692648533,"lr":0.00115,"_timestamp":1.7270025682715871e+09,"update_step":115,"throughput_tokens":220629.60707552265,"throughput_examples":1153.8309618053522,"tokens_seen":11500186}
