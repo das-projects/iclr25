@@ -1,8 +1,5 @@
 torch
 transformers
-bitsandbytes
-torch
-transformers
 tokenizers
 datasets
 peft
@@ -11,7 +8,6 @@ loguru
 nvitop
 lion-pytorch
 matplotlib
-bitsandbytes
 scipy
 scikit-learn
 evaluate

@@ -26,7 +26,7 @@ from peft_pretraining.dataloader import PreprocessedIterableDataset
 from peft_pretraining.modeling_llama import LlamaForCausalLM
 
 import bitsandbytes as bnb
-from subspace_optim import GaLoreAdamW, GaLoreAdamW8bit, GaLoreAdafactor
+from natural_galore import GaLoreAdamW, GaLoreAdamW8bit, GaLoreAdafactor
 
 transformers.logging.set_verbosity_error()
 

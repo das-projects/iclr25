@@ -17,7 +17,7 @@ from model import training_utils, args_utils
 from model.dataloader import PreprocessedIterableDataset
 from model.llama import LlamaForCausalLM
 
-from subspace_optim import SubSpaceAdamW
+from natural_galore import SubSpaceAdamW
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
@@ -45,7 +45,7 @@ def parse_args(args):
     parser.add_argument("--max_length", type=int, default=256)
     parser.add_argument(
         "--optimizer",
-        default="galore_adamw",
+        default="natural_galore_adamw",
         type=str,
         choices=[
             "adamw",
@@ -64,7 +64,7 @@ def parse_args(args):
     )
     # GaLore parameters
     parser.add_argument("--rank", type=int, default=128)
-    parser.add_argument("--update_proj_gap", type=int, default=50)
+    parser.add_argument("--update_proj_gap", type=int, default=200)
     parser.add_argument("--galore_scale", type=float, default=1.0)
     parser.add_argument("--natural_history", type=int, default=20)
 

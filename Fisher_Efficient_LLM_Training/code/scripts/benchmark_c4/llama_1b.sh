@@ -1,5 +1,5 @@
 # LLaMA-1B, GaLore-Adam, 8 A100, 1 Node
-torchrun --standalone --nproc_per_node 8 torchrun_main.py \
+python pytorchrun_main.py \
     --model_config configs/llama_1b.json \
     --lr 0.01 \
     --galore_scale 0.25 \
@@ -12,4 +12,4 @@ torchrun --standalone --nproc_per_node 8 torchrun_main.py \
     --weight_decay 0 \
     --dtype bfloat16 \
     --eval_every 1000 \
-    --optimizer galore_adamw 
+    --optimizer natural_galore_adamw

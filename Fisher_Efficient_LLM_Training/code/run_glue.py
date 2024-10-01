@@ -47,7 +47,7 @@ from transformers import (
 from transformers.utils import send_example_telemetry
 from transformers.utils.versions import require_version
 
-from subspace_optim.subspace_adamw import SubspaceAdamW
+from natural_galore.subspace_adamw import SubspaceAdamW
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 # check_min_version("4.38.0.dev0")
@@ -257,7 +257,7 @@ def parse_args():
     # galore_scale
     parser.add_argument("--galore_scale", type=float, default=1.0)
     # proj_type
-    parser.add_argument("--proj_type", type=str, default="std")
+    parser.add_argument("--proj_type", type=str, default="natural_galore")
     # lora_all_modules
     parser.add_argument(
         "--lora_all_modules",
