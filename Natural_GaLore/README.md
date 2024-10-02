@@ -5,8 +5,10 @@ This repo contains the pre-release version of Natural GaLore algorithm
 ## Installation
 
 ### Install Natural GaLore optimizer
+
 In Python 3.10 environment, install using pip inside the code folder:
-```bash 
+
+```bash
 pip install .
 ```
 
@@ -23,6 +25,7 @@ optimizer = SubSpaceAdamW(param_groups, lr=0.01)
 ```
 
 ## Benchmark 1: Pre-Training LLaMA on C4 dataset
+
 `pytorchrun_main.py` is the main script for training LLaMA models on C4 with GaLore. Our benchmark scripts for various sizes of models are in `scripts/benchmark_c4` folder.
 For example, to train a 60m model on C4, do the following:
 
@@ -45,6 +48,7 @@ python pytorchrun_main.py \
 ```
 
 ## Benchmark 2: Fine-Tuning RoBERTa on GLUE tasks
+
 `run_glue.py` is the main script for fine-tuning RoBERTa models on GLUE tasks with Natural GaLore. An example script is shown below:
 
 ```bash
