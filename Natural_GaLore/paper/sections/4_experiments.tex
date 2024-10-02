@@ -12,7 +12,21 @@ We adopt the experimental setup from \citet{lialinReLoRAHighRankTraining2023}, u
 
 \input{tables/lora_compare_llama.tex}
 
-Table~\ref{tab:lora_compare_llama} presents the validation perplexity and memory consumption for models trained with different methods and Figure~\ref{fig:train_loss} shows the training run for the Llama 1.1B model. Our proposed \textit{\lowrank} consistently outperforms GaLore \citep{zhao2024galore} across all model sizes, achieving validation perplexities closer to the full-rank baseline while maintaining significant memory savings. Furthermore, Natural GaLore exhibits lower perplexities and greater memory consumption compared to other low-rank adaptation methods like LoRA and ReLoRA, due to their less efficient use of low-rank structures and the need for additional optimizer states.
+Table~\ref{tab:lora_compare_llama} presents the validation perplexity and memory consumption for models trained with different methods and Figure~\ref{fig:train_loss} shows the training run for the Llama 1.1B model. Our proposed \textit{\lowrank} consistently outperforms GaLore \citep{zhao2024galore} across all model sizes, achieving validation perplexities closer to the full-rank baseline while maintaining significant memory savings. Furthermore, \textit{\lowrank} exhibits lower perplexities and greater memory consumption compared to other low-rank adaptation methods like LoRA and ReLoRA, due to their less efficient use of low-rank structures and the need for additional optimizer states.
+
+\vspace{-2mm}
+
+\subsection{Fine-Tuning RoBERTa-Base on the GLUE Benchmark}
+
+To further evaluate the effectiveness of \textit{\lowrank}, we conduct experiments on the General Language Understanding Evaluation (GLUE) benchmark using the pre-trained RoBERTa-Base model. The GLUE benchmark is a collection of nine natural language understanding tasks, including single-sentence tasks like CoLA \citep{warstadt2019neural}, similarity and paraphrase tasks like MRPC \citep{dolan2005automatically} and STS-B \citep{cer2017semeval}, and inference tasks like RTE \citep{dagan2005pascal}, MNLI \citep{williams2018broad}, and QNLI \citep{rajpurkar2016squad}. This benchmark is widely used to assess the performance of language models on diverse linguistic phenomena.
+
+In our experiments, we fine-tune the RoBERTa-Base model using \textit{\lowrank} and compare its performance with full fine-tuning and LoRA \citep{hu2021lora}. We focus on memory-efficient fine-tuning methods to reduce the computational footprint while maintaining high performance. For each method, we report the average score across all GLUE tasks and individual task scores.
+
+We use the same training hyperparameters across all methods for a fair comparison. The batch size is 32, and we fine-tuned each model for three epochs. The learning rate is selected from \{1e-5, 2e-5, 3e-5\} based on the best validation performance for each task. For \textit{\lowrank} and LoRA, we experiment with rank values of 4 and 8 to study the trade-off between performance and memory efficiency.
+
+Table~\ref{tab:fine_tuning} presents the results of our experiments. \textit{\lowrank} consistently achieves comparable or better performance than LoRA across most tasks while using less memory. Precisely, with a rank of 4, \textit{\lowrank} attains an average score of \textbf{86.05}, closely matching the complete fine-tuning baseline of 86.28 and outperforming LoRA's average score of 85.61. This demonstrates that \textit{\lowrank} can effectively fine-tune large models with reduced memory consumption without sacrificing performance.
+
+\input{tables/compare_fine_tuning.tex}
 
 \vspace{-2mm}
 
@@ -44,4 +58,4 @@ The training objective is then to maximize the accuracy of the generated functio
 
 After fine-tuning, the TinyLlama 1.1B model's success rate on the test set improved significantly. Table~\ref{table:t2} presents the latency, model size, and success rate of various models on the TinyAgent dataset. As shown, \textit{\lowrank} improves the success rate of the 1.1B model from 80.06\% (16-bit LoRA) to \textbf{83.09\%}, also surpassing GPT-4-Turbo by 4\% and approaching the performance of the larger TinyAgent-7B model, which achieves 84.95\%.
 
-These results demonstrate that \textit{\lowrank} not only enhances the performance of smaller models like the 1.1B parameter TinyLlama but also makes them competitive with significantly larger models. By efficiently incorporating second-order information through low-rank natural gradient updates, Natural GaLore enables smaller models to achieve higher accuracy without additional memory overhead.
+These results demonstrate that \textit{\lowrank} not only enhances the performance of smaller models like the 1.1B parameter TinyLlama but also makes them competitive with significantly larger models. By efficiently incorporating second-order information through low-rank natural gradient updates, \textit{\lowrank} enables smaller models to achieve higher accuracy without additional memory overhead.
