@@ -106,8 +106,6 @@ Finally, the Fisher efficiency result also assumes that the model can perfectly 
 
 Our \textit{\lowrank} algorithm is designed to efficiently apply the inverse empirical FIM to low-rank gradients using Woodbury's Identity. Most of the steps in the algorithm are similar to GaLore \citep{zhao2024galore}, with the critical difference being the incorporation of the natural gradient transform.
 
-% \input{algos/code_box.tex}
-
 In order to implement the natural gradient transform, we compute the inverse of the empirical FIM and apply it to the gradient \(\mathbf{g_{k}}\) using Woodbury's Identity, which allows us to efficiently compute the inverse of a matrix of the form \(A + UBU^T\). Woodbury's Identity states that:
 
 \begin{eqnarray}
