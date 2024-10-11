@@ -31,6 +31,13 @@
 \def\iclrfinalcopy{\iclrfinaltrue}
 \font\iclrtenhv  = phvb at 8pt
 
+% Define arxiv flag
+\newif\ifarxiv
+\ifarxivfalse % Set to true for arXiv version
+
+% Define a command to enable arXiv version
+\def\arxivcopy{\arxivtrue}
+
 % Specify the dimensions of each page
 
 \setlength{\paperheight}{11in}
@@ -91,13 +98,20 @@
   \def\AND{\end{tabular}\hfil\linebreak[4]\hfil
             \begin{tabular}[t]{l}\bf\rule{\z@}{24pt}\ignorespaces}%
     \begin{tabular}[t]{l}\bf\rule{\z@}{24pt}\@author\end{tabular}%
+\else\ifarxiv
+       \lhead{}
+       \def\And{\end{tabular}\hfil\linebreak[0]\hfil
+                \begin{tabular}[t]{l}\bf\rule{\z@}{24pt}\ignorespaces}%
+       \def\AND{\end{tabular}\hfil\linebreak[4]\hfil
+                \begin{tabular}[t]{l}\bf\rule{\z@}{24pt}\ignorespaces}%
+        \begin{tabular}[t]{l}\bf\rule{\z@}{24pt}\@author\end{tabular}%
 \else
        \lhead{Under review as a conference paper at ICLR 2025}
-   \def\And{\end{tabular}\hfil\linebreak[0]\hfil
-            \begin{tabular}[t]{l}\bf\rule{\z@}{24pt}\ignorespaces}%
-  \def\AND{\end{tabular}\hfil\linebreak[4]\hfil
-            \begin{tabular}[t]{l}\bf\rule{\z@}{24pt}\ignorespaces}%
-    \begin{tabular}[t]{l}\bf\rule{\z@}{24pt}Anonymous authors\\Paper under double-blind review\end{tabular}%
+       \def\And{\end{tabular}\hfil\linebreak[0]\hfil
+                \begin{tabular}[t]{l}\bf\rule{\z@}{24pt}\ignorespaces}%
+       \def\AND{\end{tabular}\hfil\linebreak[4]\hfil
+                \begin{tabular}[t]{l}\bf\rule{\z@}{24pt}\ignorespaces}%
+        \begin{tabular}[t]{l}\bf\rule{\z@}{24pt}Anonymous authors\\Paper under double-blind review\end{tabular}%
 \fi
 \vskip 0.3in minus 0.1in}}
 
