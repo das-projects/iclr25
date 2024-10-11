@@ -1,8 +1,5 @@
 \beamer@slide {eq:cross_entropy_loss}{11}
-\beamer@slide {eq:taylor_series_expansion}{20}
-\beamer@slide {eq:optimal_direction}{22}
-\beamer@slide {eq:gradient_descent_update}{22}
-\beamer@slide {eq:variance_reduction}{23}
-\beamer@slide {tab:lora_compare_llama}{33}
-\beamer@slide {tab:fine_tuning}{35}
-\beamer@slide {table:t2}{37}
+\beamer@slide {eq:adam_update}{12}
+\beamer@slide {tab:lora_compare_llama}{30}
+\beamer@slide {tab:fine_tuning}{32}
+\beamer@slide {table:t2}{42}
