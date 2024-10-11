@@ -15,101 +15,103 @@
 \headcommand {\beamer@framepages {6}{6}}
 \headcommand {\slideentry {1}{0}{5}{7/7}{}{0}}
 \headcommand {\beamer@framepages {7}{7}}
-\headcommand {\beamer@sectionpages {3}{7}}
-\headcommand {\beamer@subsectionpages {3}{7}}
-\headcommand {\sectionentry {2}{Parameter Optimization}{8}{Parameter Optimization}{0}}
-\headcommand {\slideentry {2}{0}{1}{8/8}{}{0}}
+\headcommand {\slideentry {1}{0}{6}{8/8}{}{0}}
 \headcommand {\beamer@framepages {8}{8}}
-\headcommand {\slideentry {2}{0}{2}{9/9}{}{0}}
+\headcommand {\beamer@sectionpages {3}{8}}
+\headcommand {\beamer@subsectionpages {3}{8}}
+\headcommand {\sectionentry {2}{Parameter Optimization}{9}{Parameter Optimization}{0}}
+\headcommand {\slideentry {2}{0}{1}{9/9}{}{0}}
 \headcommand {\beamer@framepages {9}{9}}
-\headcommand {\slideentry {2}{0}{3}{10/10}{}{0}}
+\headcommand {\slideentry {2}{0}{2}{10/10}{}{0}}
 \headcommand {\beamer@framepages {10}{10}}
-\headcommand {\slideentry {2}{0}{4}{11/11}{}{0}}
+\headcommand {\slideentry {2}{0}{3}{11/11}{}{0}}
 \headcommand {\beamer@framepages {11}{11}}
-\headcommand {\slideentry {2}{0}{5}{12/12}{}{0}}
+\headcommand {\slideentry {2}{0}{4}{12/12}{}{0}}
 \headcommand {\beamer@framepages {12}{12}}
-\headcommand {\slideentry {2}{0}{6}{13/13}{}{0}}
+\headcommand {\slideentry {2}{0}{5}{13/13}{}{0}}
 \headcommand {\beamer@framepages {13}{13}}
-\headcommand {\slideentry {2}{0}{7}{14/14}{}{0}}
+\headcommand {\slideentry {2}{0}{6}{14/14}{}{0}}
 \headcommand {\beamer@framepages {14}{14}}
-\headcommand {\slideentry {2}{0}{8}{15/15}{}{0}}
+\headcommand {\slideentry {2}{0}{7}{15/15}{}{0}}
 \headcommand {\beamer@framepages {15}{15}}
-\headcommand {\beamer@sectionpages {8}{15}}
-\headcommand {\beamer@subsectionpages {8}{15}}
-\headcommand {\sectionentry {3}{Proposed Approach}{16}{Proposed Approach}{0}}
-\headcommand {\slideentry {3}{0}{1}{16/16}{}{0}}
+\headcommand {\slideentry {2}{0}{8}{16/16}{}{0}}
 \headcommand {\beamer@framepages {16}{16}}
-\headcommand {\slideentry {3}{0}{2}{17/17}{}{0}}
+\headcommand {\beamer@sectionpages {9}{16}}
+\headcommand {\beamer@subsectionpages {9}{16}}
+\headcommand {\sectionentry {3}{Proposed Approach}{17}{Proposed Approach}{0}}
+\headcommand {\slideentry {3}{0}{1}{17/17}{}{0}}
 \headcommand {\beamer@framepages {17}{17}}
-\headcommand {\beamer@subsectionpages {16}{17}}
-\headcommand {\beamer@subsectionentry {0}{3}{1}{18}{Low-Rank Gradient Descent}}
-\headcommand {\slideentry {3}{1}{1}{18/18}{Low-Rank Gradient Descent}{0}}
+\headcommand {\slideentry {3}{0}{2}{18/18}{}{0}}
 \headcommand {\beamer@framepages {18}{18}}
-\headcommand {\slideentry {3}{1}{2}{19/19}{Low-Rank Gradient Descent}{0}}
+\headcommand {\beamer@subsectionpages {17}{18}}
+\headcommand {\beamer@subsectionentry {0}{3}{1}{19}{Low-Rank Gradient Descent}}
+\headcommand {\slideentry {3}{1}{1}{19/19}{Low-Rank Gradient Descent}{0}}
 \headcommand {\beamer@framepages {19}{19}}
-\headcommand {\slideentry {3}{1}{3}{20/20}{Low-Rank Gradient Descent}{0}}
+\headcommand {\slideentry {3}{1}{2}{20/20}{Low-Rank Gradient Descent}{0}}
 \headcommand {\beamer@framepages {20}{20}}
-\headcommand {\slideentry {3}{1}{4}{21/21}{Low-Rank Gradient Descent}{0}}
+\headcommand {\slideentry {3}{1}{3}{21/21}{Low-Rank Gradient Descent}{0}}
 \headcommand {\beamer@framepages {21}{21}}
-\headcommand {\beamer@subsectionpages {18}{21}}
-\headcommand {\beamer@subsectionentry {0}{3}{2}{22}{LowRank and Fisher Efficiency}}
-\headcommand {\slideentry {3}{2}{1}{22/22}{LowRank and Fisher Efficiency}{0}}
+\headcommand {\slideentry {3}{1}{4}{22/22}{Low-Rank Gradient Descent}{0}}
 \headcommand {\beamer@framepages {22}{22}}
-\headcommand {\beamer@subsectionpages {22}{22}}
-\headcommand {\beamer@subsectionentry {0}{3}{3}{23}{Natural Gradient Transform}}
-\headcommand {\slideentry {3}{3}{1}{23/23}{Natural Gradient Transform}{0}}
+\headcommand {\beamer@subsectionpages {19}{22}}
+\headcommand {\beamer@subsectionentry {0}{3}{2}{23}{LowRank and Fisher Efficiency}}
+\headcommand {\slideentry {3}{2}{1}{23/23}{LowRank and Fisher Efficiency}{0}}
 \headcommand {\beamer@framepages {23}{23}}
-\headcommand {\slideentry {3}{3}{2}{24/24}{Natural Gradient Transform}{0}}
+\headcommand {\beamer@subsectionpages {23}{23}}
+\headcommand {\beamer@subsectionentry {0}{3}{3}{24}{Natural Gradient Transform}}
+\headcommand {\slideentry {3}{3}{1}{24/24}{Natural Gradient Transform}{0}}
 \headcommand {\beamer@framepages {24}{24}}
-\headcommand {\slideentry {3}{3}{3}{25/25}{Natural Gradient Transform}{0}}
+\headcommand {\slideentry {3}{3}{2}{25/25}{Natural Gradient Transform}{0}}
 \headcommand {\beamer@framepages {25}{25}}
-\headcommand {\slideentry {3}{3}{4}{26/26}{Natural Gradient Transform}{0}}
+\headcommand {\slideentry {3}{3}{3}{26/26}{Natural Gradient Transform}{0}}
 \headcommand {\beamer@framepages {26}{26}}
-\headcommand {\slideentry {3}{3}{5}{27/27}{Natural Gradient Transform}{0}}
+\headcommand {\slideentry {3}{3}{4}{27/27}{Natural Gradient Transform}{0}}
 \headcommand {\beamer@framepages {27}{27}}
-\headcommand {\slideentry {3}{3}{6}{28/28}{Natural Gradient Transform}{0}}
+\headcommand {\slideentry {3}{3}{5}{28/28}{Natural Gradient Transform}{0}}
 \headcommand {\beamer@framepages {28}{28}}
-\headcommand {\slideentry {3}{3}{7}{29/29}{Natural Gradient Transform}{0}}
+\headcommand {\slideentry {3}{3}{6}{29/29}{Natural Gradient Transform}{0}}
 \headcommand {\beamer@framepages {29}{29}}
-\headcommand {\beamer@sectionpages {16}{29}}
-\headcommand {\beamer@subsectionpages {23}{29}}
-\headcommand {\sectionentry {4}{Experiments and Results}{30}{Experiments and Results}{0}}
-\headcommand {\slideentry {4}{0}{1}{30/30}{}{0}}
+\headcommand {\slideentry {3}{3}{7}{30/30}{Natural Gradient Transform}{0}}
 \headcommand {\beamer@framepages {30}{30}}
-\headcommand {\slideentry {4}{0}{2}{31/31}{}{0}}
+\headcommand {\beamer@sectionpages {17}{30}}
+\headcommand {\beamer@subsectionpages {24}{30}}
+\headcommand {\sectionentry {4}{Experiments and Results}{31}{Experiments and Results}{0}}
+\headcommand {\slideentry {4}{0}{1}{31/31}{}{0}}
 \headcommand {\beamer@framepages {31}{31}}
-\headcommand {\slideentry {4}{0}{3}{32/32}{}{0}}
+\headcommand {\slideentry {4}{0}{2}{32/32}{}{0}}
 \headcommand {\beamer@framepages {32}{32}}
-\headcommand {\slideentry {4}{0}{4}{33/33}{}{0}}
+\headcommand {\slideentry {4}{0}{3}{33/33}{}{0}}
 \headcommand {\beamer@framepages {33}{33}}
-\headcommand {\slideentry {4}{0}{5}{34/34}{}{0}}
+\headcommand {\slideentry {4}{0}{4}{34/34}{}{0}}
 \headcommand {\beamer@framepages {34}{34}}
-\headcommand {\slideentry {4}{0}{6}{35/35}{}{0}}
+\headcommand {\slideentry {4}{0}{5}{35/35}{}{0}}
 \headcommand {\beamer@framepages {35}{35}}
-\headcommand {\slideentry {4}{0}{7}{36/36}{}{0}}
+\headcommand {\slideentry {4}{0}{6}{36/36}{}{0}}
 \headcommand {\beamer@framepages {36}{36}}
-\headcommand {\beamer@sectionpages {30}{36}}
-\headcommand {\beamer@subsectionpages {30}{36}}
-\headcommand {\sectionentry {5}{Conclusion}{37}{Conclusion}{0}}
-\headcommand {\slideentry {5}{0}{1}{37/37}{}{0}}
+\headcommand {\slideentry {4}{0}{7}{37/37}{}{0}}
 \headcommand {\beamer@framepages {37}{37}}
-\headcommand {\slideentry {5}{0}{2}{38/38}{}{0}}
+\headcommand {\beamer@sectionpages {31}{37}}
+\headcommand {\beamer@subsectionpages {31}{37}}
+\headcommand {\sectionentry {5}{Conclusion}{38}{Conclusion}{0}}
+\headcommand {\slideentry {5}{0}{1}{38/38}{}{0}}
 \headcommand {\beamer@framepages {38}{38}}
-\headcommand {\slideentry {5}{0}{3}{39/39}{}{0}}
+\headcommand {\slideentry {5}{0}{2}{39/39}{}{0}}
 \headcommand {\beamer@framepages {39}{39}}
-\headcommand {\slideentry {5}{0}{4}{40/40}{}{0}}
+\headcommand {\slideentry {5}{0}{3}{40/40}{}{0}}
 \headcommand {\beamer@framepages {40}{40}}
-\headcommand {\beamer@sectionpages {37}{40}}
-\headcommand {\beamer@subsectionpages {37}{40}}
-\headcommand {\sectionentry {6}{\translate {References}}{41}{\translate {References}}{0}}
-\headcommand {\slideentry {6}{0}{0}{41/41}{}{0}}
+\headcommand {\slideentry {5}{0}{4}{41/41}{}{0}}
 \headcommand {\beamer@framepages {41}{41}}
-\headcommand {\slideentry {6}{0}{0}{41/42}{}{0}}
-\headcommand {\beamer@framepages {41}{42}}
-\headcommand {\slideentry {6}{0}{0}{41/43}{}{0}}
-\headcommand {\beamer@framepages {41}{43}}
-\headcommand {\beamer@partpages {1}{43}}
-\headcommand {\beamer@subsectionpages {37}{43}}
-\headcommand {\beamer@sectionpages {37}{43}}
-\headcommand {\beamer@documentpages {43}}
-\headcommand {\gdef \inserttotalframenumber {43}}
+\headcommand {\beamer@sectionpages {38}{41}}
+\headcommand {\beamer@subsectionpages {38}{41}}
+\headcommand {\sectionentry {6}{\translate {References}}{42}{\translate {References}}{0}}
+\headcommand {\slideentry {6}{0}{0}{42/42}{}{0}}
+\headcommand {\beamer@framepages {42}{42}}
+\headcommand {\slideentry {6}{0}{0}{42/43}{}{0}}
+\headcommand {\beamer@framepages {42}{43}}
+\headcommand {\slideentry {6}{0}{0}{42/44}{}{0}}
+\headcommand {\beamer@framepages {42}{44}}
+\headcommand {\beamer@partpages {1}{44}}
+\headcommand {\beamer@subsectionpages {38}{44}}
+\headcommand {\beamer@sectionpages {38}{44}}
+\headcommand {\beamer@documentpages {44}}
+\headcommand {\gdef \inserttotalframenumber {44}}

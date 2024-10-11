@@ -41,34 +41,68 @@
 
 \begin{frame}{AI Systems}
     \begin{itemize}
-        \item \textbf{Large Language Models (LLMs)} have achieved remarkable performance in various disciplines.
-        \item However, turning LLMs into reliable AI systems remains challenging.
-        \item Every AI system will make mistakes, but the monolithic nature of LLMs makes it difficult to understand and correct these errors.
-        \item By building modular programs, using LLMs as specialized components, we can create more reliable and interpretable systems.
+        \item Since GPT-2 Radford, et al 2019, the concept of in-context learning, has made LLMs extremely flexible and powerful.
+        \item This has opened the door to build AI systems, which can respond to a wide variety of queries. Solving complex problems may require a combination of: knowledge, reasoning, compute and action.
+        \item However, building reliable AI systems for practical applications remains challenging.
     \end{itemize}
 \end{frame}
 
-\begin{frame}{LLM Program}
+\begin{frame}{AI Systems}
     \begin{itemize}
-        \item A LLM program \(\Phi: \mathcal{X} \to \mathcal{Y}\), is a function where input and output space \(\mathcal{X}, \mathcal{Y}\) is natural language.
-        \item \(\Phi\) is assumed to make calls to modules \(\mathcal{M} = \left(\mathcal{M}_1, \mathcal{M}_2, \ldots, \mathcal{M}_{|\mathcal{M}|}\right)\) where each module \(\mathcal{M}_i: \mathcal{X}_i \to \mathcal{Y}_i\) is a declarative LLM invocation, defined via inherently fuzzy natural language descriptions.
+        \item Solving such a complex problem requires systemically breaking it down into modules.
+        \item Each module is a call to an LLM which performs a subtask, requiring its own set of prompts and parameters.
+        \item These modules can then be combined together as a directed graph, which solves the problem.
+        \item Building AI system hence requires good prompt and parameter optimization techniques.
     \end{itemize}
 \end{frame}
 
-\begin{frame}{LLM Program Optimization}
+\begin{frame}{Prompt Optimization}
     \begin{itemize}
-        \item The LLM program optimization problem is then defined by: 
-            \[
-            \arg \min_{\Pi, \Theta} \sum_{\left(x,y\right)\in \left(\mathcal{X} \times \mathcal{Y}\right)}\mathcal{L}(\Phi_{\Theta, \Pi}(x), y)
-            \]
-            given a labeled dataset \(\left(\mathcal{X} \times \mathcal{Y}\right)\) and a loss function \(\mathcal{L}\).
-        \item For each module \(\mathcal{M}_i\), the optimization problem determines:
-            \begin{itemize}
-                \item \textbf{Prompt Optimization}: String prompt \(\Pi_i\) in which inputs \(\mathcal{X}_i\) are plugged in.
-                \item \textbf{Parameter Optimization}: Weights \(\Theta_i\) which are assigned to the module \(\mathcal{M}_i\).
-            \end{itemize}
+        \item Prompt optimization is the process of finding the optimal prompt for a given LLM to maximize performance on a specific task.
+        \vspace{0.5em}
+        \begin{itemize}
+            \item \textbf{Prompt Proposal}: The challenge comes from the fact that they are inherently fuzzy and have a exponentially large solution space.
+            \vspace{0.5em}
+            \item \textbf{Credit Assignment}: Another issue is to find efficient ways of inferring how each prompt variable contributes to performance.
+        \end{itemize}
+        \item Algorithms like OPRO and MIPRO, approach this problem by building efficient prompt proposal sampling, and credit assignment mechanisms following ideas from Bayesian optimization.
     \end{itemize}
 \end{frame}
+
+\begin{frame}{Parameter Optimization}
+    \begin{itemize}
+        \item LLM training requires parameter optimization at three steps:
+        \vspace{0.5em}
+        \begin{itemize}
+            \item Pre-training: The model is optimized for the Next Token Prediction task on vast amounts of raw natural language text data.
+            \vspace{0.5em}
+            \item Supervised Fine-tuning: Using high quality “Instruction Data”, the model is transformed from essentially an autocomplete model, into one which can perform in context learning.
+            \vspace{0.5em}
+            \item Preference optimization: Here responses are sampled, ranked according to user preferences and then the model is updated to prefer those.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+% \begin{frame}{LLM Program}
+%     \begin{itemize}
+%         \item A LLM program \(\Phi: \mathcal{X} \to \mathcal{Y}\), is a function where input and output space \(\mathcal{X}, \mathcal{Y}\) is natural language.
+%         \item \(\Phi\) is assumed to make calls to modules \(\mathcal{M} = \left(\mathcal{M}_1, \mathcal{M}_2, \ldots, \mathcal{M}_{|\mathcal{M}|}\right)\) where each module \(\mathcal{M}_i: \mathcal{X}_i \to \mathcal{Y}_i\) is a declarative LLM invocation, defined via inherently fuzzy natural language descriptions.
+%     \end{itemize}
+% \end{frame}
+
+% \begin{frame}{LLM Program Optimization}
+%     \begin{itemize}
+%         \item The LLM program optimization problem is then defined by:
+%             \[
+%             \arg \min_{\Pi, \Theta} \sum_{\left(x,y\right)\in \left(\mathcal{X} \times \mathcal{Y}\right)}\mathcal{L}(\Phi_{\Theta, \Pi}(x), y)
+%             \]
+%             given a labeled dataset \(\left(\mathcal{X} \times \mathcal{Y}\right)\) and a loss function \(\mathcal{L}\).
+%         \item For each module \(\mathcal{M}_i\), the optimization problem determines:
+%             \begin{itemize}
+%                 \item \textbf{Prompt Optimization}: String prompt \(\Pi_i\) in which inputs \(\mathcal{X}_i\) are plugged in.
+%                 \item \textbf{Parameter Optimization}: Weights \(\Theta_i\) which are assigned to the module \(\mathcal{M}_i\).
+%             \end{itemize}
+%     \end{itemize}
+% \end{frame}
 
 \begin{frame}{LLM Program Optimization}
     \includegraphics[width=\textwidth]{figures/LLM Program Optimization.png}
@@ -80,8 +114,10 @@
 % Part 2: Describe the options considered for solving the problem
 \section{Parameter Optimization}
 
-\begin{frame}{Next Token Prediction in LLMs}
-    Generative LLMs predict the next token based on previously observed tokens (causal prediction).
+\begin{frame}{Next Token Prediction}
+    \begin{itemize}
+        \item LLMs are trained to predict the next token based on previously observed tokens (causal prediction)
+    \end{itemize}
     \begin{equation}
         \text{Prob}_{\mathbf{\theta}}(x) = \prod_{t=1}^{T} \text{Prob}_{\mathbf{\theta}}(x_t \mid x_{<t})
     \end{equation}
