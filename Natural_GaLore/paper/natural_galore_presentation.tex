@@ -32,7 +32,7 @@
         \end{frame}
 }
 
-\title[Natural GaLore]{Natural GaLore: A Memory Efficient Approach for LLM Training and Finetuning}
+\title[Natural GaLore]{Natural GaLore: A Memory Efficient Approach for LLM Training and Fine-tuning}
 \author{Arijit Das}
 \date{\today}
 
@@ -52,8 +52,8 @@
 
 \begin{frame}{Advanced Agentic Systems (AAS)}
     \begin{itemize}
-        \item Since GPT-3 \citep{brownLanguageModelsAre2020}, the concept of in-context learning, has made LLMs extremely flexible and powerful.
-        \item This has opened the door to build AAS, which can respond to a wide variety of queries and solving complex problems, which may require a combination of: knowledge, reasoning, compute and action.
+        \item Since GPT-3 \citep{brownLanguageModelsAre2020}, the concept of in-context learning has made LLMs extremely flexible and powerful.
+        \item This has opened the door to build AAS that can respond to a wide variety of queries and solve complex problems, which may require a combination of: knowledge, reasoning, compute and action.
         \item However, building reliable AAS for practical applications remains challenging.
     \end{itemize}
 \end{frame}
@@ -76,7 +76,7 @@
             \vspace{0.5em}
             \item \textbf{Credit Assignment}: Another issue is to find efficient ways of inferring how each prompt variable contributes to performance.
         \end{itemize}
-        \item Algorithms like OPRO \citep{yang2024largelanguagemodelsoptimizers} and MIPRO \citep{opsahlong2024optimizinginstructionsdemonstrationsmultistage}, approach this problem by building efficient prompt proposal sampling, and credit assignment mechanisms following ideas from Bayesian optimization.
+        \item Algorithms like OPRO \citep{yang2024largelanguagemodelsoptimizers} and MIPRO \citep{opsahlong2024optimizinginstructionsdemonstrationsmultistage} approach this problem by building efficient prompt proposal sampling, and credit assignment mechanisms following ideas from Bayesian optimization.
     \end{itemize}
 \end{frame}
 
@@ -116,7 +116,7 @@
 
 \begin{frame}{Objective: Negative Log-Likelihood (NLL)}
     \begin{itemize}
-        \item The training objective is to minimize the Negative Log-Likelihood (NLL):
+        \item The training objective is to minimize NLL:
     \end{itemize}
     \begin{equation}
         \Phi(\mathbf{\theta}) = -\sum_{t=1}^{T} \log \text{Prob}_{\mathbf{\theta}}(x_t \mid x_{<t})
@@ -155,15 +155,13 @@
             \vspace{0.5em}
             \item For example for pre-training a Llama-7B model using Adam, requires 72GB of memory: 14GB for parameters and gradients each, 42GB for optimizer states and 2GB for activations.
             \vspace{0.5em}
-            \item This limits the ability to train large models on hardware with limited memory capacity.
+            \item These limit the ability to train large models on hardware with limited memory capacity.
             \vspace{0.5em}
-            \item Increases training costs and environmental impact.
+            \item Increase training costs and environmental impact.
         \end{itemize}
         \item \textbf{Objective}: Develop a memory-efficient approach for training and fine-tuning LLMs without sacrificing performance.
     \end{itemize}
 \end{frame}
-
-\subsection{Distributed Training Techniques}
 
 \begin{frame}{Distributed Training Techniques}
     \begin{itemize}
@@ -206,8 +204,6 @@
         \end{itemize}
     \end{itemize}
 \end{frame}
-
-\subsection{Approximation Techniques}
 
 \begin{frame}{Parameter-Efficient Fine-Tuning (PEFT)}
     \begin{itemize}
@@ -276,9 +272,9 @@
     \end{itemize}
 \end{frame}
 
-\begin{frame}{Fisher Information Matrix (FIM)}
+\begin{frame}{Fisher Information Matrix}
     \begin{itemize}
-        \item \textbf{Key idea}: When the loss function can be written in terms of the KL-divergence, the Fisher Information Matrix (FIM) approximates the Hessian matrix:
+        \item \textbf{Key idea}: When the loss function can be written in terms of the KL-divergence, the FIM approximates the Hessian matrix:
         \[
             \mathbf{F}_k = \mathbb{E}_{x \sim p_{\text{data}}} [ \mathbf{H}_k ]
         \]
@@ -294,7 +290,7 @@
 \begin{frame}{Natural Gradient Transform}
     \begin{itemize}
         \item In practice, FIM cannot be calculated efficiently.
-        \item We approximate the empirical FIM using a mini-batch of \(h \approx 20\) samples:
+        \item I approximate the empirical FIM using a mini-batch of \(h \approx 20\) samples:
         \[
             \mathbf{\hat{F}}_k = \frac{1}{h} \sum_{k=1}^{h} \mathbf{g}_{k}^{\text{low-rank}} \mathbf{g}_{k}^{\text{low-rank} T}
         \]
@@ -314,9 +310,9 @@
 \begin{frame}{Natural Gradient Computation}
     \begin{itemize}
         \item Inverting the empirical FIM is computationally expensive.
-        \item Here we use the Woodbury's Identity to compute the natural gradient efficiently:
+        \item Here I use the Woodbury's Identity to compute the natural gradient efficiently:
             \begin{itemize}
-                \item By re-writing \(\mathbf{\hat{F}}_k = \lambda I + GG^T\), we get:
+                \item By re-writing \(\mathbf{\hat{F}}_k = \lambda I + GG^T\), I get:
                     \[
                     (\lambda I + GG^T)^{-1} = \frac{1}{\lambda} I - \frac{1}{\lambda^2} G (I + \frac{1}{\lambda} G^T G)^{-1} G^T
                     \]
@@ -448,7 +444,7 @@
     \begin{itemize}
         \item LLMCompiler \citep{kim2023llmcompiler} generates function-calling plans with required functions and arguments.
         \item It can then compile the plan into executable sequences.
-        \item \textbf{Key challenge}: Original paper, implmented with 7B+ models. Could we fine tune smaller language models to generate a function plan with correct syntax, argument values, and respect for dependencies.
+        \item \textbf{Key challenge}: In the LLMCompiler paper, the authors had only experimented with 7B+ models. The question here is, if I could fine-tune smaller LLMs to generate a function plan with correct syntax, argument values, and respect for dependencies.
     \end{itemize}
 \end{frame}
 
@@ -467,7 +463,7 @@
 
 \begin{frame}{Innoculation by Fine-Tuning}
     \begin{itemize}
-        \item To solve this, we fine-tune TinyLlama 1.1B using the curated TinyAgent dataset \citep{erdogan2024tinyagent}.
+        \item To solve this, I fine-tune TinyLlama 1.1B using the curated TinyAgent dataset \citep{erdogan2024tinyagent}.
         \item Fine-tuning enables the model to learn:
         \begin{itemize}
             \item Task-specific patterns for function-calling.
@@ -575,11 +571,9 @@
 
 \begin{frame}{Conclusion}
     \begin{itemize}
-        \item Presented \textbf{Natural GaLore}, a memory-efficient approach for LLM training and fine-tuning.
-        \item Enhanced GaLore by incorporating \textbf{natural gradients} for better performance.
-        \item Achieved significant memory savings without sacrificing accuracy.
-        \item Validated effectiveness through extensive experiments on pre-training and fine-tuning tasks.
-        \item Demonstrated practical benefits in advanced agentic systems.
+        \item \textbf{Natural GaLore} is a memory-efficient approach for LLM training and fine-tuning which enhances GaLore by incorporating \textbf{natural gradients} for better performance.
+        \item Its effectiveness was demonstrated through extensive experiments on pre-training and fine-tuning tasks.
+        \item I also demonstrated practical benefits in Advanced Agentic Systems.
     \end{itemize}
 \end{frame}
 
@@ -594,7 +588,7 @@
 
 \begin{frame}{}
     \begin{center}
-        Questions?
+        Thank You! Questions?
     \end{center}
 \end{frame}
 
